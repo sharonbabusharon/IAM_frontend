@@ -1,0 +1,148 @@
+/* Global base and reset. Design tokens live on <body> in app.html. */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+* {
+    margin: 0;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+body {
+    min-height: 100%;
+    background:
+        radial-gradient(1200px 620px at 50% -8%, rgba(70, 78, 150, 0.22), transparent 60%),
+        radial-gradient(900px 500px at 100% 0%, rgba(150, 90, 190, 0.12), transparent 55%),
+        var(--bg_root);
+    background-attachment: fixed;
+    color: var(--text_primary);
+    font-family: var(--font_family);
+    font-size: var(--font_size_base);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+    font-family: var(--font_display);
+    font-weight: var(--font_weight_bold);
+    line-height: 1.12;
+    letter-spacing: -0.02em;
+    color: var(--text_primary);
+}
+
+a {
+    color: var(--accent_primary);
+    text-decoration: none;
+    transition: color var(--transition_base);
+}
+
+a:hover {
+    color: var(--text_primary);
+}
+
+button {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+input,
+textarea,
+select {
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+}
+
+:focus-visible {
+    outline: 2px solid var(--accent_primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+::selection {
+    background: var(--accent_primary_soft);
+    color: var(--text_primary);
+}
+
+/* Scrollbars */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+*::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+    background-clip: content-box;
+}
+
+/* Shared helpers */
+.app_container {
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 0 var(--spacing_3xl);
+}
+
+.eyebrow {
+    font-size: var(--font_size_xs);
+    font-weight: var(--font_weight_semibold);
+    letter-spacing: var(--eyebrow_spacing);
+    text-transform: uppercase;
+    color: var(--text_tertiary);
+}
+
+.card {
+    background: var(--bg_surface);
+    border: 1px solid var(--border_primary);
+    border-radius: var(--radius_lg);
+    box-shadow: var(--shadow_md);
+}
+
+.gradient_text {
+    background: var(--grad_accent);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+}
+
+.visually_hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}

@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="theme-color" content="#07080c" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sora:wght@400;600;700;800&display=swap"
+			rel="stylesheet"
+		/>
+		%sveltekit.head%
+	</head>
+	<body
+		data-sveltekit-preload-data="hover"
+		style="
+	--main_header_height: 64px;
+
+	/* --- ACCENTS --- */
+	--accent_from: #6e7bf2;
+	--accent_to: #b07cf0;
+	--grad_accent: linear-gradient(135deg, #6e7bf2 0%, #b07cf0 100%);
+	--accent_primary: #8b93ff;
+	--accent_primary_hover: #a3a9ff;
+	--accent_primary_soft: rgba(124, 130, 246, 0.14);
+	--accent_primary_border: rgba(124, 130, 246, 0.4);
+
+	/* --- SEMANTIC --- */
+	--color_blue: #5b8cff;
+	--color_purple: #9a7bff;
+	--color_pink: #e5628f;
+	--color_green: #3ecf8e;
+	--color_amber: #f5b544;
+	--color_red: #f2557a;
+	--color_positive: #3ecf8e;
+	--color_positive_soft: rgba(62, 207, 142, 0.13);
+	--color_negative: #f2557a;
+	--color_negative_soft: rgba(242, 85, 122, 0.13);
+	--color_negative_border: rgba(242, 85, 122, 0.4);
+
+	/* --- TEXT --- */
+	--text_primary: #f4f5f8;
+	--text_secondary: #a2a8b6;
+	--text_tertiary: #6b7180;
+	--text_on_accent: #15162c;
+
+	/* --- BACKGROUNDS --- */
+	--bg_root: #07080c;
+	--bg_surface: #12141c;
+	--bg_surface_2: #171a23;
+	--bg_surface_3: #1e222d;
+	--bg_elevated: #16181f;
+	--bg_hover: rgba(255, 255, 255, 0.04);
+
+	/* --- BORDERS --- */
+	--border_primary: rgba(255, 255, 255, 0.07);
+	--border_secondary: rgba(255, 255, 255, 0.05);
+	--border_strong: rgba(255, 255, 255, 0.12);
+
+	/* --- FONTS --- */
+	--font_display: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+	--font_family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+	/* --- FONT SIZES --- */
+	--font_size_xs: 11px;
+	--font_size_sm: 12px;
+	--font_size_base: 14px;
+	--font_size_md: 15px;
+	--font_size_lg: 17px;
+	--font_size_xl: 20px;
+	--font_size_2xl: 26px;
+	--font_size_3xl: 34px;
+	--font_size_4xl: 46px;
+
+	/* --- FONT WEIGHTS --- */
+	--font_weight_normal: 400;
+	--font_weight_medium: 500;
+	--font_weight_semibold: 600;
+	--font_weight_bold: 700;
+	--font_weight_black: 800;
+
+	/* --- SPACING --- */
+	--spacing_xs: 4px;
+	--spacing_sm: 6px;
+	--spacing_md: 8px;
+	--spacing_lg: 12px;
+	--spacing_xl: 16px;
+	--spacing_2xl: 20px;
+	--spacing_3xl: 24px;
+	--spacing_4xl: 32px;
+	--spacing_5xl: 48px;
+
+	/* --- RADIUS --- */
+	--radius_sm: 8px;
+	--radius_md: 12px;
+	--radius_lg: 16px;
+	--radius_xl: 20px;
+	--radius_pill: 999px;
+	--radius_full: 50%;
+
+	/* --- ICON SIZES --- */
+	--icon_size_sm: 14px;
+	--icon_size_base: 16px;
+	--icon_size_md: 20px;
+	--icon_size_lg: 24px;
+
+	/* --- TRANSITIONS --- */
+	--transition_fast: 0.15s ease;
+	--transition_base: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+	--transition_smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+	/* --- SHADOWS --- */
+	--shadow_sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+	--shadow_md: 0 8px 24px -8px rgba(0, 0, 0, 0.55);
+	--shadow_lg: 0 24px 60px -18px rgba(0, 0, 0, 0.7);
+	--shadow_glow: 0 10px 34px -10px rgba(124, 110, 242, 0.5);
+
+	/* --- MISC --- */
+	--eyebrow_spacing: 0.08em;
+	"
+	>
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>
