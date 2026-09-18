@@ -1,0 +1,9 @@
+{
+  "extends": "./jsconfig.json",
+  "include": [
+    "src/lib/portal/**/*.ts",
+    "src/lib/portal/**/*.svelte",
+    "src/routes/(portal)/**/*.ts",
+    "src/routes/(portal)/**/*.svelte"
+  ]
+}
