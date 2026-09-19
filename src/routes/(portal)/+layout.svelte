@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
   import { onMount as on_mount } from "svelte";
   import { page } from "$app/stores";
   import "$lib/portal/portal.css";

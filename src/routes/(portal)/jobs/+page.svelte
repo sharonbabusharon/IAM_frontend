@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import Icon from "$lib/portal/icon.svelte";
@@ -13,7 +13,6 @@
     filter_jobs,
   } from "$lib/portal/search";
   import { saved_jobs, saved_searches, toast } from "$lib/portal/state";
-  import type { search_filters } from "$lib/portal/types";
   let filters = filters_from_params($page.url.searchParams);
   let previous_search = $page.url.search;
   let view = "list";
@@ -58,8 +57,8 @@
     filters = { ...default_filters(), saved: filters.saved };
     sync();
   }
-  function remove(key: string, value: string) {
-    const array_key = key as "modes" | "types" | "categories" | "levels";
+  function remove(key, value) {
+    const array_key = key;
     filters = {
       ...filters,
       [array_key]: filters[array_key].filter((item) => item !== value),
@@ -87,16 +86,14 @@
     save_dialog = false;
     toast("Search saved. Pick up where you left off anytime.");
   }
-  function change_page(next: number) {
+  function change_page(next) {
     current_page = next;
-    document
-      .getElementById("results-heading")
-      ?.scrollIntoView({
-        block: "start",
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "auto"
-          : "smooth",
-      });
+    document.getElementById("results-heading")?.scrollIntoView({
+      block: "start",
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
   }
 </script>
 
@@ -355,7 +352,9 @@
     ><Filter_panel bind:filters on:change={sync} />
     <div class="drawer_footer">
       <button class="button button_outline" on:click={clear}>Reset all</button
-      ><button class="button button_dark" on:click={() => (show_filters = false)}
+      ><button
+        class="button button_dark"
+        on:click={() => (show_filters = false)}
         >Show {results.length} opportunities <Icon
           name="arrow-right"
           size={15}

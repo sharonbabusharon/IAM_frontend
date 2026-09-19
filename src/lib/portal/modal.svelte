@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
   import {
     createEventDispatcher as create_event_dispatcher,
     onMount as on_mount,
@@ -7,9 +7,9 @@
   export let title = "";
   export let wide = false;
   const dispatch = create_event_dispatcher();
-  let dialog: HTMLDialogElement;
+  let dialog;
   on_mount(() => {
-    const previous_focus = document.activeElement as HTMLElement | null;
+    const previous_focus = document.activeElement;
     const previous_overflow = document.body.style.overflow;
     dialog.showModal();
     document.body.style.overflow = "hidden";
@@ -19,7 +19,7 @@
       previous_focus?.focus();
     };
   });
-  function backdrop(event: MouseEvent) {
+  function backdrop(event) {
     if (event.target === dialog) dispatch("close");
   }
 </script>

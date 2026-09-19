@@ -1,7 +1,5 @@
-import type { company_data, job_data, profile_data } from "./types";
-
 // Deliberately fictional fixtures. Replace this module with the product API adapter.
-export const companies: company_data[] = [
+export const companies = [
   {
     id: "forma",
     name: "Forma",
@@ -81,7 +79,6 @@ export const companies: company_data[] = [
       "Arc helps developers turn ambitious ideas into reliable products. We build tools that remove complexity and give teams more time to create.",
   },
 ];
-
 const design_responsibilities = [
   "Own the end-to-end design of meaningful product experiences, from early exploration to the final details.",
   "Work closely with engineering and product partners to turn complex problems into clear, useful solutions.",
@@ -94,8 +91,7 @@ const design_requirements = [
   "A strong eye for interaction, typography, layout, and accessible design.",
   "Comfort sharing work early, giving considered feedback, and learning from others.",
 ];
-
-export const jobs: job_data[] = [
+export const jobs = [
   {
     id: "senior-product-designer",
     title: "Senior Product Designer",
@@ -419,8 +415,7 @@ export const jobs: job_data[] = [
     ],
   },
 ];
-
-export const default_profile: profile_data = {
+export const default_profile = {
   name: "Alex Morgan",
   title: "Product Designer",
   location: "Bengaluru, India",
@@ -448,15 +443,14 @@ export const default_profile: profile_data = {
   roles: "Senior Product Designer, Product Designer",
   work_mode: "Remote or hybrid",
 };
-
-export function get_company(id: string): company_data {
+export function get_company(id) {
   return companies.find((company) => company.id === id) ?? companies[0];
 }
-export function salary(job: job_data): string {
+export function salary(job) {
   if (job.currency === "INR")
     return `₹${job.salary_min / 100000}–${job.salary_max / 100000} LPA`;
   return `${job.currency === "USD" ? "$" : "£"}${job.salary_min / 1000}k–${job.salary_max / 1000}k / year`;
 }
-export function posted(days: number): string {
+export function posted(days) {
   return days === 0 ? "Today" : `${days}d ago`;
 }

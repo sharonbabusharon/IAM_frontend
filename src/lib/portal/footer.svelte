@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
   import Logo from "./logo.svelte";
   import Icon from "./icon.svelte";
   import Modal from "./modal.svelte";

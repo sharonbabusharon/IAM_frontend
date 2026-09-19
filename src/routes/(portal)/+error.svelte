@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
   import { page } from "$app/stores";
   import Icon from "$lib/portal/icon.svelte";
 </script>

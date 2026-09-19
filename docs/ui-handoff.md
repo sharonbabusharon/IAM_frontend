@@ -37,13 +37,13 @@ Before launch: connect real job/profile/application services, enforce privacy on
 ## Implementation map
 
 - `src/routes/(portal)`: four page routes, shared layout, and error page.
-- `src/lib/portal`: shared UI components, types, fixture data, query filtering, and browser state.
+- `src/lib/portal`: shared UI components, fixture data, query filtering, and browser state.
 - `portal.css`: shared visual system and landing styles.
 - `portal_pages.css`: discovery, detail, profile, and responsive styles.
 
 ## Code conventions
 
-Custom variables, functions, types, component files, and CSS classes use snake_case. Svelte component references start with an uppercase letter (`Job_card`) so Svelte recognizes them as components. Native browser APIs, SvelteKit options, existing URLs, and storage keys keep their required names. Styles are in the two CSS files; component style directives supply dynamic values such as company colors and progress widths.
+The portal uses plain JavaScript in `.js` files and Svelte `<script>` blocks, with no TypeScript source or preprocessing. Custom variables, functions, component files, and CSS classes use snake_case. Svelte component references start with an uppercase letter (`Job_card`) so Svelte recognizes them as components. Native browser APIs, SvelteKit options, existing URLs, and storage keys keep their required names. Styles are in the two CSS files; component style directives supply dynamic values such as company colors and progress widths.
 
 ## Verification
 

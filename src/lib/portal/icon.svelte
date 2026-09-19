@@ -1,8 +1,8 @@
-<script lang="ts">
+<script>
   export let name = "arrow-right";
   export let size = 20;
   export let stroke = 1.7;
-  const paths: Record<string, string> = {
+  const paths = {
     "arrow-right": "M4 12h16m-6-6 6 6-6 6",
     "arrow-up-right": "M6 18 18 6M6 6h12v12",
     "arrow-left": "M20 12H4m6-6-6 6 6 6",

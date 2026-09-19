@@ -1,14 +1,9 @@
-<script lang="ts">
+<script>
   import { createEventDispatcher as create_event_dispatcher } from "svelte";
   import Icon from "./icon.svelte";
-  import type { search_filters } from "./types";
-  export let filters: search_filters;
+  export let filters;
   const dispatch = create_event_dispatcher();
-  const groups: {
-    title: string;
-    key: "modes" | "types" | "categories" | "levels";
-    options: string[];
-  }[] = [
+  const groups = [
     {
       title: "Work arrangement",
       key: "modes",
@@ -37,10 +32,7 @@
       options: ["Full-time", "Part-time", "Contract", "Internship"],
     },
   ];
-  function toggle(
-    key: "modes" | "types" | "categories" | "levels",
-    value: string,
-  ) {
+  function toggle(key, value) {
     filters = {
       ...filters,
       [key]: filters[key].includes(value)

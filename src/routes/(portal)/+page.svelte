@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
   import { goto } from "$app/navigation";
   import Icon from "$lib/portal/icon.svelte";
   import Hero_art from "$lib/portal/hero_art.svelte";
@@ -6,11 +6,10 @@
   import Job_card from "$lib/portal/job_card.svelte";
   import Modal from "$lib/portal/modal.svelte";
   import { jobs, companies } from "$lib/portal/data";
-  import type { company_data } from "$lib/portal/types";
   let query = "";
   let location = "";
   let active_category = "All opportunities";
-  let selected_company: company_data | null = null;
+  let selected_company = null;
   let open_faq = -1;
   const categories = [
     "All opportunities",
@@ -343,7 +342,8 @@
     <div class="modal_copy">
       <p>{selected_company.description}</p>
       <div class="company_facts">
-        <span><Icon name="location" size={16} />{selected_company.location}</span
+        <span
+          ><Icon name="location" size={16} />{selected_company.location}</span
         ><span
           ><Icon name="building" size={16} />Founded in {selected_company.founded}</span
         >

@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import Icon from "$lib/portal/icon.svelte";
@@ -6,9 +6,8 @@
   import Modal from "$lib/portal/modal.svelte";
   import { profile, applications, saved_jobs, toast } from "$lib/portal/state";
   import { default_profile, jobs, get_company } from "$lib/portal/data";
-  import type { profile_data } from "$lib/portal/types";
   let editing = "";
-  let draft: profile_data = {
+  let draft = {
     ...default_profile,
     skills: [...default_profile.skills],
   };
@@ -18,11 +17,7 @@
   let project_open = "";
   let sharing = false;
   let share_url = "";
-  const privacy_options: {
-    key: "visible" | "open" | "salary_private" | "resume_private";
-    title: string;
-    text: string;
-  }[] = [
+  const privacy_options = [
     {
       key: "visible",
       title: "Public profile",
@@ -47,7 +42,7 @@
   $: current_tab = ["overview", "activity", "preferences"].includes(
     $page.url.searchParams.get("tab") ?? "",
   )
-    ? $page.url.searchParams.get("tab")!
+    ? $page.url.searchParams.get("tab")
     : "overview";
   $: initials = $profile.name
     .split(/\s+/)
@@ -62,7 +57,7 @@
     $profile.skills.length,
   ].filter(Boolean).length;
   $: public_preview = $page.url.searchParams.get("public") === "1";
-  function edit(section: string) {
+  function edit(section) {
     draft = { ...$profile, skills: [...$profile.skills] };
     skill_text = draft.skills.join(", ");
     editing = section;
@@ -89,9 +84,7 @@
     editing = "";
     toast("Profile updated. Your next chapter looks good on you.");
   }
-  function privacy(
-    key: "visible" | "salary_private" | "resume_private" | "open",
-  ) {
+  function privacy(key) {
     profile.update((value) => ({ ...value, [key]: !value[key] }));
     toast("Preference saved in this browser.");
   }
@@ -131,12 +124,16 @@
           ? "A LOOK THROUGH SOMEONE ELSE’S EYES"
           : "YOUR STORY, IN YOUR WORDS"}</span
       >
-      <h1>{public_preview ? "Your public profile." : "Make yourself known."}</h1>
+      <h1>
+        {public_preview ? "Your public profile." : "Make yourself known."}
+      </h1>
     </div>
     <button
       class="button button_outline button_small"
       on:click={() => {
-        goto(public_preview ? "/profile" : "/profile?public=1", { noScroll: true });
+        goto(public_preview ? "/profile" : "/profile?public=1", {
+          noScroll: true,
+        });
       }}
       ><Icon
         name={public_preview ? "arrow-left" : "eye"}
@@ -521,7 +518,9 @@
               Choose what others can see. Use the public preview to check how
               these preferences change your profile.
             </p>
-            {#each privacy_options as preference}<div class="privacy_preference">
+            {#each privacy_options as preference}<div
+                class="privacy_preference"
+              >
                 <div>
                   <strong>{preference.title}</strong>
                   <p>{preference.text}</p>

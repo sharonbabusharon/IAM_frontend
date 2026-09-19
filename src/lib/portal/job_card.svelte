@@ -1,10 +1,9 @@
-<script lang="ts">
-  import type { job_data } from "./types";
+<script>
   import { get_company, salary, posted } from "./data";
   import { saved_jobs, toggle_saved, applications } from "./state";
   import Company_logo from "./company_logo.svelte";
   import Icon from "./icon.svelte";
-  export let job: job_data;
+  export let job;
   export let compact = false;
   $: company = get_company(job.company);
 </script>

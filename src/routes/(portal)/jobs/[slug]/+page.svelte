@@ -1,5 +1,4 @@
-<script lang="ts">
-  import type { PageData } from "./$types";
+<script>
   import Icon from "$lib/portal/icon.svelte";
   import Company_logo from "$lib/portal/company_logo.svelte";
   import Job_card from "$lib/portal/job_card.svelte";
@@ -12,7 +11,7 @@
     applications,
     toast,
   } from "$lib/portal/state";
-  export let data: PageData;
+  export let data;
   $: job = data.job;
   $: company = get_company(job.company);
   $: related = [
@@ -339,7 +338,10 @@
         >
       </div>
       <div class="related_grid">
-        {#each related as relatedJob}<Job_card job={relatedJob} compact />{/each}
+        {#each related as relatedJob}<Job_card
+            job={relatedJob}
+            compact
+          />{/each}
       </div>
     </div>
   </section>

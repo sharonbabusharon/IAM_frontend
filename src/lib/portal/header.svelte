@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
   import { page } from "$app/stores";
   import { profile, saved_jobs } from "./state";
   import Logo from "./logo.svelte";

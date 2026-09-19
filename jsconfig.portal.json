@@ -1,9 +1,12 @@
 {
   "extends": "./jsconfig.json",
+  "compilerOptions": {
+    "checkJs": false
+  },
   "include": [
-    "src/lib/portal/**/*.ts",
+    "src/lib/portal/**/*.js",
     "src/lib/portal/**/*.svelte",
-    "src/routes/(portal)/**/*.ts",
+    "src/routes/(portal)/**/*.js",
     "src/routes/(portal)/**/*.svelte"
   ]
 }

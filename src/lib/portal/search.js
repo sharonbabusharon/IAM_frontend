@@ -1,7 +1,5 @@
-import type { search_filters, job_data } from "./types";
 import { get_company } from "./data";
-
-export function default_filters(): search_filters {
+export function default_filters() {
   return {
     query: "",
     location: "",
@@ -16,7 +14,7 @@ export function default_filters(): search_filters {
     min_salary: 0,
   };
 }
-export function filters_from_params(params: URLSearchParams): search_filters {
+export function filters_from_params(params) {
   return {
     query: params.get("q") ?? "",
     location: params.get("location") ?? "",
@@ -31,7 +29,7 @@ export function filters_from_params(params: URLSearchParams): search_filters {
     min_salary: Math.max(0, Number(params.get("minSalary")) || 0),
   };
 }
-export function filters_to_params(filters: search_filters): URLSearchParams {
+export function filters_to_params(filters) {
   const params = new URLSearchParams();
   if (filters.query.trim()) params.set("q", filters.query.trim());
   if (filters.location.trim()) params.set("location", filters.location.trim());
@@ -40,7 +38,7 @@ export function filters_to_params(filters: search_filters): URLSearchParams {
     ["type", filters.types],
     ["category", filters.categories],
     ["level", filters.levels],
-  ] as [string, string[]][])
+  ])
     values.forEach((value) => params.append(key, value));
   if (filters.easy) params.set("easy", "1");
   if (filters.saved) params.set("saved", "1");
@@ -50,15 +48,10 @@ export function filters_to_params(filters: search_filters): URLSearchParams {
     params.set("minSalary", String(filters.min_salary));
   return params;
 }
-export function filter_jobs(
-  jobs: job_data[],
-  filters: search_filters,
-  saved: string[],
-): job_data[] {
+export function filter_jobs(jobs, filters, saved) {
   const query = filters.query.trim().toLowerCase();
   const location = filters.location.trim().toLowerCase();
   const keywords = query ? query.split(/\s+/) : [];
-
   const result = jobs.filter((job) => {
     const haystack = [
       job.title,
@@ -69,11 +62,9 @@ export function filter_jobs(
       .join(" ")
       .toLowerCase();
     if (keywords.some((word) => !haystack.includes(word))) return false;
-
     const matches_location = job.location.toLowerCase().includes(location);
     const matches_remote = location === "remote" && job.mode === "Remote";
     if (location && !matches_location && !matches_remote) return false;
-
     if (filters.modes.length && !filters.modes.includes(job.mode)) return false;
     if (filters.types.length && !filters.types.includes(job.type)) return false;
     if (filters.categories.length && !filters.categories.includes(job.category))
@@ -82,12 +73,10 @@ export function filter_jobs(
       return false;
     if (filters.easy && job.application !== "Easy apply") return false;
     if (filters.saved && !saved.includes(job.id)) return false;
-
     if (filters.currency) {
       if (job.currency !== filters.currency) return false;
       if (filters.min_salary > job.salary_max) return false;
     }
-
     return true;
   });
   if (filters.sort === "newest") result.sort((a, b) => a.posted - b.posted);

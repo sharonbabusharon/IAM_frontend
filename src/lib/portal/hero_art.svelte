@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
   import Company_logo from "./company_logo.svelte";
   import Icon from "./icon.svelte";
 </script>

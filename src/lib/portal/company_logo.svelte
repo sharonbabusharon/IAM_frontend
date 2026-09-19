@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
   import { get_company } from "./data";
   export let id = "forma";
   export let size = 44;

@@ -1,25 +1,22 @@
 import { writable, get } from "svelte/store";
 import { browser } from "$app/environment";
 import { default_profile, jobs } from "./data";
-import type { profile_data } from "./types";
-
-export const saved_jobs = writable<string[]>([]);
-export const applications = writable<string[]>([]);
-export const saved_searches = writable<{ name: string; query: string }[]>([]);
-export const profile = writable<profile_data>({
+export const saved_jobs = writable([]);
+export const applications = writable([]);
+export const saved_searches = writable([]);
+export const profile = writable({
   ...default_profile,
   skills: [...default_profile.skills],
 });
 export const notification = writable("");
 let hydrated = false;
-let timer: ReturnType<typeof setTimeout>;
-
-export function toast(message: string) {
+let timer;
+export function toast(message) {
   clearTimeout(timer);
   notification.set(message);
   timer = setTimeout(() => notification.set(""), 4200);
 }
-function read(key: string): unknown {
+function read(key) {
   try {
     return JSON.parse(
       localStorage.getItem(`referise-preview:${key}`) ?? "null",
@@ -28,7 +25,7 @@ function read(key: string): unknown {
     return null;
   }
 }
-function persist(key: string, value: unknown) {
+function persist(key, value) {
   try {
     localStorage.setItem(`referise-preview:${key}`, JSON.stringify(value));
   } catch {
@@ -44,7 +41,7 @@ export function hydrate_preview() {
   for (const [key, store] of [
     ["saved", saved_jobs],
     ["applications", applications],
-  ] as const) {
+  ]) {
     const value = read(key);
     if (Array.isArray(value))
       store.set(
@@ -66,14 +63,14 @@ export function hydrate_preview() {
   const stored = read("profile");
   if (stored && typeof stored === "object" && !Array.isArray(stored)) {
     // Keep preferences saved before the field names changed.
-    const old_keys: Record<string, string> = {
+    const old_keys = {
       salary_private: "salaryPrivate",
       resume_private: "resumePrivate",
       work_mode: "workMode",
     };
-    const stored_profile = stored as Record<string, unknown>;
+    const stored_profile = stored;
     const next = { ...default_profile, skills: [...default_profile.skills] };
-    for (const key of Object.keys(default_profile) as (keyof profile_data)[]) {
+    for (const key of Object.keys(default_profile)) {
       const value = stored_profile[key] ?? stored_profile[old_keys[key]];
       if (
         key === "skills" &&
@@ -88,7 +85,7 @@ export function hydrate_preview() {
   }
   profile.subscribe((next) => persist("profile", next));
 }
-export function toggle_saved(id: string) {
+export function toggle_saved(id) {
   const was_saved = get(saved_jobs).includes(id);
   saved_jobs.update((value) =>
     was_saved ? value.filter((item) => item !== id) : [...value, id],
