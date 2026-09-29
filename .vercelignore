@@ -1,0 +1,13 @@
+.git
+.idea
+.vercel
+.svelte-kit
+node_modules
+output
+tmp
+docs
+*.rar
+*.zip
+*.log
+.env
+.env.*

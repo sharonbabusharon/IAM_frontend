@@ -1,0 +1,2739 @@
+.portal.cobalt_pages {
+  --paper: #f5f7ff;
+  --ink: #142044;
+  --muted: #636e88;
+  --faint: #7c87a0;
+  --line: #dce2ef;
+  --accent: #3155ef;
+  --accent_hover: #2343ce;
+  --sage: #3155ef;
+  --serif: var(--sans);
+  --lime: #dfff8c;
+  background: var(--paper);
+}
+.cobalt_pages .portal_container {
+  width: min(1200px, calc(100% - 96px));
+  max-width: none;
+}
+.cobalt_pages :is(.search_page, .detail_page, .profile_page) {
+  --product_secondary: #465570;
+  --product_muted: #636e88;
+}
+.cobalt_pages :is(h1, h2, h3) {
+  font-family: var(--sans);
+  color: var(--ink);
+}
+.cobalt_pages :is(.eyebrow_label, .section_label) {
+  color: var(--muted);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+.cobalt_pages :is(.button, .field_input) {
+  border-radius: 8px;
+}
+.cobalt_pages .button_dark {
+  background: var(--accent);
+}
+.cobalt_pages .button_dark:hover {
+  background: var(--accent_hover);
+}
+.cobalt_pages .button_outline:hover,
+.cobalt_pages .icon_button:hover {
+  background: #e9eeff;
+  border-color: #c9d3f4;
+}
+.cobalt_pages .button_lime {
+  background: var(--lime);
+  color: var(--ink);
+}
+.cobalt_pages .button_lime:hover {
+  background: #ccef72;
+  color: var(--ink);
+}
+.cobalt_pages .field_input {
+  background: #fff;
+  border-color: var(--line);
+  color: var(--ink);
+}
+.cobalt_pages .field_input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px #3155ef16;
+}
+.cobalt_pages .announcement {
+  background: #152247;
+  color: #cdd6ed;
+  border: 0;
+  font-size: 10px;
+}
+.cobalt_pages .announcement a {
+  color: var(--lime);
+}
+.cobalt_pages .portal_header {
+  background: var(--paper);
+  border-color: var(--line);
+}
+.cobalt_pages .header_inner {
+  min-height: 83px;
+}
+.cobalt_pages .desktop_nav > a {
+  color: var(--muted);
+  font-size: 12px;
+}
+.cobalt_pages .desktop_nav > a.active {
+  color: var(--accent);
+}
+.cobalt_pages .desktop_nav > a.active:after {
+  background: var(--accent);
+}
+.cobalt_pages .avatar_mini {
+  background: #e3e9ff;
+  color: var(--accent);
+  border: 1px solid #cbd6ff;
+  border-radius: 50%;
+}
+.cobalt_pages .small_count {
+  background: var(--accent);
+  color: #fff;
+}
+.cobalt_pages .saved_nav,
+.cobalt_pages .profile_nav {
+  color: var(--ink);
+}
+.cobalt_pages .mobile_navigation {
+  background: #fff;
+  border-color: var(--line);
+}
+.cobalt_pages .portal_footer {
+  background: #111d3d;
+  border: 0;
+  color: #d8e0f2;
+  margin-top: 0;
+}
+.cobalt_pages .footer_bottom {
+  border-color: #ffffff20;
+  color: #c4cfe6;
+  padding-block: 26px;
+}
+.cobalt_pages .footer_bottom button,
+.cobalt_pages .preview_label {
+  color: #c4cfe6;
+}
+.cobalt_pages .preview_label > span {
+  background: var(--lime);
+}
+.cobalt_pages .portal_modal {
+  background: #fff;
+  border-color: var(--line);
+  border-radius: 18px;
+}
+.cobalt_pages .modal_heading h2 {
+  font-weight: 600;
+  font-size: 28px;
+  letter-spacing: -0.05em;
+}
+.cobalt_pages
+  :is(
+    .modal_description,
+    .modal_copy,
+    .field_label,
+    .consent_checkbox,
+    .resume_preview > p,
+    .case_study > p
+  ) {
+  color: var(--muted);
+}
+.cobalt_pages .inline_notice,
+.cobalt_pages .application_profile_note {
+  background: #edf1ff;
+  color: #465a83;
+  border-color: var(--line);
+}
+.cobalt_pages .portal_toast {
+  background: #152247;
+  color: #fff;
+  border-color: #304165;
+}
+.cobalt_pages .toast_check {
+  background: var(--lime);
+  color: var(--ink);
+}
+.cobalt_pages .portal_toast .icon_button {
+  color: #fff;
+}
+
+.cobalt_pages .search_intro {
+  background: var(--paper);
+  padding: 42px 0 31px;
+  border-bottom: 1px solid var(--line);
+}
+.cobalt_pages .search_intro_heading {
+  position: relative;
+  min-height: 180px;
+  gap: 35px;
+}
+.cobalt_pages .search_intro h1 {
+  font-size: 61px;
+  font-weight: 650;
+  letter-spacing: -0.065em;
+  line-height: 1.06;
+  max-width: 660px;
+  margin-top: 16px;
+}
+.cobalt_pages .search_intro h1 em {
+  font-style: normal;
+  color: var(--accent);
+  display: block;
+}
+.cobalt_pages .search_intro_heading p {
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 20px;
+}
+.cobalt_pages .discovery_art {
+  width: 250px;
+  height: 190px;
+  position: relative;
+  flex-shrink: 0;
+  margin-right: 25px;
+}
+.cobalt_pages .discovery_arch {
+  position: absolute;
+  width: 130px;
+  height: 165px;
+  border: 19px solid var(--accent);
+  border-bottom: 0;
+  border-radius: 80px 80px 0 0;
+  left: 52px;
+  top: 0;
+  background: #b4c4ff;
+  box-shadow: 8px 0 #243ec1;
+}
+.cobalt_pages .discovery_art .career_companion {
+  position: absolute;
+  left: 34px;
+  bottom: 0;
+  transform: rotate(-7deg);
+}
+.cobalt_pages .discovery_ticket {
+  position: absolute;
+  right: -2px;
+  bottom: 20px;
+  padding: 16px 14px;
+  background: var(--lime);
+  border-radius: 7px;
+  transform: rotate(8deg);
+  font-size: 8px;
+  letter-spacing: 0.07em;
+  line-height: 1.8;
+}
+.cobalt_pages .discovery_ticket strong {
+  font-size: 13px;
+  letter-spacing: -0.03em;
+}
+.cobalt_pages .discovery_spark {
+  position: absolute;
+  right: 14px;
+  top: 5px;
+  font-size: 35px;
+  color: var(--accent);
+}
+.cobalt_pages .results_search {
+  margin-top: 29px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 7px 22px #1c336007;
+}
+.cobalt_pages .results_search > label {
+  padding-left: 15px;
+  color: var(--muted);
+}
+.cobalt_pages .results_search input {
+  font-size: 12px;
+  padding-block: 12px;
+  color: var(--ink);
+}
+.cobalt_pages .results_search input::placeholder {
+  color: var(--muted);
+}
+.cobalt_pages .results_search .button {
+  min-height: 46px;
+  border-radius: 7px;
+  font-size: 12px;
+  padding-inline: 23px;
+}
+.cobalt_pages .search_workspace {
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 30px;
+  padding-block: 35px 65px;
+  align-items: start;
+}
+.cobalt_pages .search_sidebar {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  padding: 23px 20px;
+}
+.cobalt_pages .filter_title h2 {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+}
+.cobalt_pages .filter_title > button {
+  color: var(--accent);
+  font-size: 10px;
+}
+.cobalt_pages
+  :is(.filter_checkbox, .easy_toggle > span:first-child, .salary_filter > p) {
+  color: var(--muted);
+}
+.cobalt_pages .filter_group legend {
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 12px;
+}
+.cobalt_pages .filter_checkbox {
+  font-size: 12px;
+  padding-block: 7px;
+}
+.cobalt_pages .filter_checkbox input,
+.cobalt_pages .consent_checkbox input {
+  border-color: #bac6e3;
+  width: 15px;
+  height: 15px;
+}
+.cobalt_pages .filter_checkbox input:checked,
+.cobalt_pages .consent_checkbox input:checked,
+.cobalt_pages .easy_toggle input:checked + .toggle_track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.cobalt_pages .toggle_track {
+  background: #dce2ef;
+}
+.cobalt_pages .salary_filter .field_input {
+  font-size: 11px;
+  padding: 9px;
+}
+.cobalt_pages .sidebar_note {
+  background: #e9efda;
+  border: 0;
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 22px;
+  overflow: hidden;
+}
+.cobalt_pages .sidebar_note .career_companion {
+  display: block;
+  margin: -8px 0 -8px -12px;
+}
+.cobalt_pages .sidebar_note h3 {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 20px;
+  letter-spacing: -0.05em;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.cobalt_pages .sidebar_note p {
+  color: #526347;
+  font-size: 11px;
+  line-height: 1.9;
+  margin-top: 12px;
+}
+.cobalt_pages .results_topline {
+  align-items: center;
+  margin-bottom: 24px;
+}
+.cobalt_pages .results_topline h2 {
+  font-family: var(--sans);
+  font-weight: 650;
+  font-size: 25px;
+  letter-spacing: -0.04em;
+  line-height: 1.3;
+}
+.cobalt_pages .results_topline h2 > span {
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 14px;
+  margin-left: 5px;
+}
+.cobalt_pages .results_topline .eyebrow_label {
+  color: var(--accent);
+  margin-bottom: 9px;
+}
+.cobalt_pages .results_controls {
+  padding-bottom: 20px;
+  border-color: var(--line);
+  gap: 12px;
+}
+.cobalt_pages .quick_filter {
+  border-radius: 22px;
+  padding: 8px 14px;
+  border-color: var(--line);
+  color: var(--muted);
+  background: #fff;
+}
+.cobalt_pages .quick_filter.active {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+.cobalt_pages
+  :is(
+    .sample_results_label,
+    .sort_control,
+    .sort_control select,
+    .pagination,
+    .search_bottom_note
+  ) {
+  color: var(--muted);
+}
+.cobalt_pages .view_switch {
+  border-radius: 7px;
+  background: #e7ecfa;
+  padding: 3px;
+  border: 0;
+}
+.cobalt_pages .view_switch > button {
+  border-radius: 5px;
+  color: var(--muted);
+}
+.cobalt_pages .view_switch > button.active {
+  background: #fff;
+  color: var(--accent);
+  box-shadow: 0 2px 5px #21367b0b;
+}
+.cobalt_pages .active_filter_row > button,
+.cobalt_pages .saved_search_row > a {
+  background: #e6ecff;
+  color: #3155c9;
+  border-color: #d1daf5;
+  border-radius: 20px;
+}
+.cobalt_pages .page_number.active {
+  background: var(--accent);
+  color: #fff;
+}
+.cobalt_pages .empty_state {
+  background: #fff;
+  border: 1px dashed #b8c6ef;
+  border-radius: 16px;
+  padding: 55px 30px;
+}
+.cobalt_pages .empty_icon {
+  background: #e7edff;
+  color: var(--accent);
+}
+.cobalt_pages .empty_state :is(h2, h3) {
+  font-size: 28px;
+  letter-spacing: -0.045em;
+  font-weight: 600;
+}
+.cobalt_pages .empty_state p {
+  color: var(--muted);
+}
+.cobalt_pages .drawer_footer {
+  background: #fff;
+  border-color: var(--line);
+}
+
+.cobalt_pages .results_jobs {
+  gap: 20px;
+}
+.cobalt_pages .job_card {
+  display: flex;
+  flex-direction: column;
+  padding: 0 !important;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: #fff;
+  overflow: hidden;
+  box-shadow: none;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+.cobalt_pages .job_card:hover {
+  border-color: #bfcbec;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px #14204408;
+}
+.cobalt_pages .job_card_cover {
+  background: #e1e8ff;
+  padding: 23px;
+  position: relative;
+}
+.cobalt_pages .tone_layers .job_card_cover,
+.cobalt_pages .tone_monograph .job_card_cover {
+  background: #e9e0f9;
+}
+.cobalt_pages .tone_orbit .job_card_cover,
+.cobalt_pages .tone_northstar .job_card_cover {
+  background: #e5edcd;
+}
+.cobalt_pages .tone_arc .job_card_cover {
+  background: #f7e2d4;
+}
+.cobalt_pages .job_card_cover:after {
+  content: "+";
+  position: absolute;
+  right: 17px;
+  top: 77px;
+  font-size: 87px;
+  font-weight: 300;
+  line-height: 1;
+  color: #ffffff66;
+  transform: rotate(15deg);
+  pointer-events: none;
+}
+.cobalt_pages .job_card_top {
+  position: relative;
+  z-index: 1;
+}
+.cobalt_pages .company_name {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.cobalt_pages .job_posted {
+  color: #56627d;
+  font-size: 10px;
+}
+.cobalt_pages .verified_small {
+  color: var(--accent);
+}
+.cobalt_pages .bookmark_button {
+  border-radius: 50%;
+  background: #ffffff66;
+  border: 1px solid #ffffff88;
+  color: var(--ink);
+}
+.cobalt_pages .bookmark_button.saved {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.cobalt_pages .job_card h3 {
+  font-size: 27px !important;
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  line-height: 1.13;
+  margin: 24px 0 16px;
+  min-height: 61px;
+  max-width: 85%;
+  position: relative;
+  z-index: 1;
+}
+.cobalt_pages .job_card h3 a:hover {
+  color: var(--accent);
+}
+.cobalt_pages .job_meta {
+  font-size: 10px !important;
+  color: #4e5b78;
+  min-height: 20px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  gap: 9px;
+}
+.cobalt_pages .job_meta > span + span:before {
+  display: none;
+}
+.cobalt_pages .job_meta > span:last-child {
+  margin-left: auto;
+  border: 1px solid #14204422;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 9px;
+}
+.cobalt_pages .job_card_content {
+  padding: 20px 23px 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cobalt_pages .job_summary {
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--muted);
+  margin: 0 0 14px;
+  min-height: 65px;
+}
+.cobalt_pages .job_tags {
+  margin: 0 0 18px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.cobalt_pages .job_tags > span {
+  font-size: 9px;
+  padding: 5px 8px;
+  background: #f1f4fb;
+  border: 0;
+  border-radius: 5px;
+  color: #53617b;
+}
+.cobalt_pages .job_card_bottom {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  border: 0;
+  margin: auto 0 0;
+  padding: 0 0 18px;
+  min-width: 0;
+  gap: 12px;
+}
+.cobalt_pages .job_card_bottom strong {
+  font-size: 22px;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+}
+.cobalt_pages .job_card_bottom .salary_note {
+  font-size: 9px;
+  color: var(--muted);
+}
+.cobalt_pages .job_card_link {
+  width: 37px;
+  height: 37px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+}
+.cobalt_pages .job_card_link:hover {
+  background: var(--accent_hover);
+  color: #fff;
+}
+.cobalt_pages .job_card_link > svg {
+  color: #fff;
+}
+.cobalt_pages .job_card_foot {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 9px;
+}
+.cobalt_pages .job_card_foot .easy_apply {
+  color: #3b755e;
+  font-size: 9px;
+}
+.cobalt_pages .tier_label {
+  background: #f1edfb;
+  color: #72519b;
+  border: 0;
+  font-size: 8px;
+  padding: 3px 6px;
+}
+.cobalt_pages .results_jobs.list_view .job_card {
+  display: grid;
+  grid-template-columns: 1fr 1.05fr;
+  column-gap: 0;
+}
+.cobalt_pages .list_view .job_card_cover {
+  padding: 22px;
+}
+.cobalt_pages .list_view .job_card h3 {
+  font-size: 25px !important;
+  margin-top: 22px;
+}
+.cobalt_pages .list_view .job_card_content {
+  padding: 23px 24px 0;
+}
+.cobalt_pages .list_view .job_card_bottom {
+  margin-top: auto;
+  padding-bottom: 15px;
+  flex-direction: row;
+  text-align: left;
+  align-items: center;
+  min-width: 0;
+}
+.cobalt_pages .list_view .job_summary {
+  margin: 0 0 13px;
+  min-height: 0;
+}
+.cobalt_pages .list_view .job_tags {
+  margin: 0 0 20px;
+}
+.cobalt_pages .list_view .job_card_bottom strong {
+  font-size: 20px;
+}
+.cobalt_pages .job_card.compact h3 {
+  font-size: 25px !important;
+  min-height: 0;
+}
+.cobalt_pages .job_card.compact .job_card_content {
+  padding-bottom: 3px;
+}
+
+.cobalt_pages .breadcrumbs {
+  padding-block: 23px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.cobalt_pages .detail_hero {
+  position: relative;
+  overflow: hidden;
+  background: #152247;
+  color: #fff;
+  padding: 36px 0 0;
+}
+.cobalt_pages .detail_hero > .portal_container {
+  position: relative;
+  z-index: 1;
+}
+.cobalt_pages .detail_arch_art {
+  position: absolute;
+  right: 5%;
+  top: 95px;
+  width: 295px;
+  height: 335px;
+  border: 35px solid #253966;
+  border-bottom: 0;
+  border-radius: 160px 160px 0 0;
+  transform: rotate(12deg);
+  pointer-events: none;
+}
+.cobalt_pages .detail_arch_art > span {
+  position: absolute;
+  inset: 16px 16px 0;
+  border: 1px solid #58709d;
+  border-bottom: 0;
+  border-radius: 120px 120px 0 0;
+}
+.cobalt_pages .detail_arch_art i {
+  position: absolute;
+  top: 75px;
+  right: 40px;
+  color: var(--lime);
+  font-style: normal;
+  font-size: 66px;
+  opacity: 0.7;
+}
+.cobalt_pages .detail_company_name {
+  font-size: 17px;
+  color: #fff;
+  font-weight: 550;
+}
+.cobalt_pages .detail_company_line .job_posted {
+  color: #b8c7e8;
+  margin-top: 5px;
+}
+.cobalt_pages .verified_company {
+  background: #ffffff12;
+  color: #c8d7ff;
+  border: 1px solid #ffffff20;
+  border-radius: 5px;
+  font-size: 9px;
+  padding: 4px 7px;
+}
+.cobalt_pages .detail_actions .button {
+  min-height: 40px;
+  font-size: 11px;
+}
+.cobalt_pages .detail_actions .button_outline {
+  color: #fff;
+  border-color: #ffffff55;
+}
+.cobalt_pages .detail_actions .button_outline:hover {
+  background: #ffffff15;
+}
+.cobalt_pages .detail_actions .button.saved {
+  background: #3155ef;
+  color: #fff;
+  border-color: #6684ff;
+}
+.cobalt_pages .detail_actions .icon_button {
+  color: #fff;
+}
+.cobalt_pages .detail_title_line {
+  margin-top: 38px;
+  align-items: start;
+}
+.cobalt_pages .detail_title_line h1 {
+  font-family: var(--sans);
+  font-size: 65px;
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -0.06em;
+  color: #fff;
+  max-width: 800px;
+}
+.cobalt_pages .detail_title_line h1 > span {
+  color: var(--lime);
+}
+.cobalt_pages .detail_title_line p {
+  color: #c4d0e7;
+  max-width: 645px;
+  font-size: 13px;
+  line-height: 1.9;
+  margin-top: 22px;
+}
+.cobalt_pages .detail_tier {
+  background: var(--lime);
+  color: var(--ink);
+  border: 0;
+  border-radius: 5px;
+  font-size: 9px;
+  padding: 6px 10px;
+  transform: rotate(5deg);
+  margin-top: 8px;
+}
+.cobalt_pages .detail_location {
+  color: #c4d0e7;
+  font-size: 11px;
+  margin-top: 24px;
+}
+.cobalt_pages .detail_hero .green_dot_label {
+  color: var(--lime) !important;
+}
+.cobalt_pages .green_dot_label > span {
+  background: var(--lime);
+}
+.cobalt_pages .job_facts_strip {
+  margin-top: 35px;
+  background: #ffffff08;
+  border-top: 1px solid #ffffff26;
+  border-bottom: 0;
+  padding: 23px 0;
+  gap: 0;
+}
+.cobalt_pages .job_facts_strip > div {
+  color: #9dafd4;
+  gap: 13px;
+  padding-left: 16px;
+}
+.cobalt_pages .job_facts_strip > div + div {
+  border-color: #ffffff26;
+  padding-left: 30px;
+}
+.cobalt_pages .job_facts_strip > div > span {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  gap: 7px;
+}
+.cobalt_pages .job_facts_strip strong {
+  font-size: 16px;
+  font-weight: 550;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+.cobalt_pages .detail_grid {
+  grid-template-columns: minmax(0, 1fr) 310px;
+  gap: 38px;
+  padding-block: 38px 48px;
+  align-items: start;
+}
+.cobalt_pages .job_description {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  padding: 29px 32px;
+}
+.cobalt_pages .detail_tabs {
+  gap: 25px;
+  margin-bottom: 31px;
+}
+.cobalt_pages .detail_tabs > a {
+  color: var(--muted);
+  font-size: 11px;
+  padding-bottom: 17px;
+}
+.cobalt_pages .detail_tabs > a.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+.cobalt_pages .description_section {
+  border-color: var(--line);
+  padding-bottom: 30px;
+  margin-bottom: 31px;
+}
+.cobalt_pages .description_section h2 {
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1.13;
+  letter-spacing: -0.05em;
+  margin-block: 15px 21px;
+}
+.cobalt_pages
+  :is(
+    .job_description p,
+    .description_list,
+    .about_text,
+    .experience_description
+  ) {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.9;
+}
+.cobalt_pages .description_section h3 {
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+  margin-top: 27px;
+}
+.cobalt_pages .description_list {
+  padding-left: 20px;
+}
+.cobalt_pages .description_list li::marker {
+  color: var(--accent);
+}
+.cobalt_pages .description_list li {
+  padding-left: 4px;
+  margin-top: 9px;
+}
+.cobalt_pages .encouragement_note {
+  background: #eef2ff;
+  border: 0;
+  border-radius: 10px;
+  padding: 21px;
+  gap: 14px;
+}
+.cobalt_pages .encouragement_note > svg {
+  color: var(--accent);
+}
+.cobalt_pages .encouragement_note strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+.cobalt_pages .encouragement_note p {
+  font-size: 11px;
+  color: var(--muted) !important;
+}
+.cobalt_pages .benefits_grid {
+  gap: 12px;
+}
+.cobalt_pages .benefits_grid > div {
+  background: #f1f4fc;
+  border-color: var(--line);
+  border-radius: 10px;
+  padding: 22px;
+}
+.cobalt_pages .benefits_grid > div:nth-child(2) {
+  background: #e9efda;
+}
+.cobalt_pages .benefits_grid > div:nth-child(3) {
+  background: #ece6f8;
+}
+.cobalt_pages .benefits_grid > div > svg {
+  color: var(--accent);
+}
+.cobalt_pages .benefits_grid strong {
+  font-size: 13px;
+  color: var(--ink);
+}
+.cobalt_pages .benefits_grid p {
+  font-size: 11px;
+}
+.cobalt_pages .description_small {
+  font-size: 10px !important;
+  color: var(--muted) !important;
+}
+.cobalt_pages .step_number {
+  background: #e8edff;
+  color: var(--accent);
+  border-color: #d6dfff;
+  border-radius: 50%;
+  font-size: 12px;
+}
+.cobalt_pages .hiring_steps > li:before {
+  background: var(--line);
+}
+.cobalt_pages .hiring_steps h3 {
+  font-size: 14px;
+  margin-top: 0;
+  gap: 10px;
+  line-height: 1.6;
+}
+.cobalt_pages .hiring_steps h3 > span {
+  font-size: 9px;
+  color: var(--muted);
+}
+.cobalt_pages .hiring_steps p {
+  color: var(--muted) !important;
+  font-size: 12px;
+}
+.cobalt_pages .apply_section {
+  background: var(--lime);
+  border: 0;
+  border-radius: 12px;
+  padding: 27px;
+  gap: 20px;
+}
+.cobalt_pages .apply_section h2 {
+  font-size: 31px;
+  font-weight: 600;
+  letter-spacing: -0.055em;
+  color: var(--ink);
+}
+.cobalt_pages .apply_section .eyebrow_label {
+  color: #526347;
+}
+.cobalt_pages .apply_section p {
+  font-size: 12px;
+  color: #526347;
+}
+.cobalt_pages .apply_footnote {
+  color: #536344;
+  font-size: 9px;
+}
+.cobalt_pages .report_row,
+.cobalt_pages .report_row button {
+  color: var(--muted);
+  font-size: 10px;
+}
+.cobalt_pages .detail_sidebar {
+  gap: 20px;
+}
+.cobalt_pages .detail_company_card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  padding: 26px;
+}
+.cobalt_pages .sidebar_card_label {
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  margin-bottom: 24px;
+}
+.cobalt_pages .detail_company_card h2 {
+  font-size: 29px;
+  font-weight: 650;
+  letter-spacing: -0.05em;
+  margin-top: 15px;
+}
+.cobalt_pages
+  :is(
+    .detail_company_card > p,
+    .detail_company_card dt,
+    .detail_company_card dd
+  ) {
+  color: var(--muted) !important;
+  font-size: 11px;
+  line-height: 1.9;
+}
+.cobalt_pages .detail_company_card dl > div {
+  border-color: var(--line);
+}
+.cobalt_pages .detail_skills_card {
+  padding: 23px;
+  background: #e9e3f7;
+  border-radius: 13px;
+}
+.cobalt_pages .skill_chips > a,
+.cobalt_pages .profile_skills > span {
+  background: #fff;
+  border: 1px solid #d9d2ea;
+  color: #63518c;
+  border-radius: 6px;
+  padding: 7px 11px;
+  font-size: 11px;
+}
+.cobalt_pages .hiring_activity_card {
+  background: #152247;
+  border: 0;
+  border-radius: 14px;
+  padding: 25px;
+}
+.cobalt_pages .activity_heading > svg {
+  color: var(--lime);
+}
+.cobalt_pages .hiring_activity_card h3 {
+  color: #fff !important;
+  font-size: 14px;
+}
+.cobalt_pages
+  :is(.hiring_activity_card > p, .hiring_metrics span, .activity_caption) {
+  color: #c4d0e7;
+  font-size: 9px;
+}
+.cobalt_pages .hiring_metrics strong {
+  color: var(--lime);
+  font-size: 28px;
+  font-weight: 500;
+}
+.cobalt_pages .activity_progress {
+  background: #384769;
+}
+.cobalt_pages .activity_progress > span {
+  background: var(--lime);
+}
+.cobalt_pages .detail_fairness_note {
+  padding: 12px 9px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.cobalt_pages .detail_fairness_note .career_companion {
+  flex-shrink: 0;
+}
+.cobalt_pages .detail_fairness_note p {
+  font-size: 10px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+.cobalt_pages .detail_fairness_note strong {
+  color: var(--ink);
+  font-weight: 550;
+}
+.cobalt_pages .related_section {
+  background: #eaf0ff;
+  border-top: 1px solid var(--line);
+  padding-block: 49px;
+}
+.cobalt_pages .related_section .section_heading h2 {
+  font-size: 39px;
+  font-weight: 600;
+  letter-spacing: -0.05em;
+}
+.cobalt_pages .related_grid {
+  gap: 23px;
+}
+
+.cobalt_pages .profile_page {
+  padding-block: 40px 65px;
+}
+.cobalt_pages .profile_page_intro {
+  margin-bottom: 29px;
+}
+.cobalt_pages .profile_page_intro h1 {
+  font-size: 48px;
+  font-weight: 650;
+  letter-spacing: -0.06em;
+  line-height: 1.15;
+}
+.cobalt_pages .profile_identity_card {
+  background: #fff;
+  border-color: var(--line);
+  border-radius: 18px;
+}
+.cobalt_pages .profile_cover {
+  height: 170px;
+  background: var(--accent);
+}
+.cobalt_pages
+  .profile_cover
+  > span:not(.cover_star):not(.profile_cover_companion) {
+  color: #e6edff;
+  left: 38px;
+  right: auto;
+  bottom: 39px;
+  font-size: 10px;
+  letter-spacing: 0.17em;
+}
+.cobalt_pages .profile_cover .cover_star {
+  color: var(--lime);
+  left: 37px;
+  top: 26px;
+  font-size: 40px;
+}
+.cobalt_pages .profile_cover > .profile_cover_companion {
+  position: absolute;
+  right: 130px;
+  bottom: -12px;
+  transform: rotate(-7deg);
+  animation: product_arrive 0.8s ease-out both;
+}
+.cobalt_pages .profile_avatar {
+  width: 115px;
+  height: 115px;
+  border-radius: 50%;
+  background: #152247;
+  color: var(--lime);
+  border: 6px solid #fff;
+  font-family: var(--sans);
+  font-size: 35px;
+  font-weight: 550;
+  letter-spacing: -0.04em;
+  margin-top: -34px;
+}
+.cobalt_pages .profile_avatar > span {
+  background: var(--accent);
+  border-color: #fff;
+  right: 0;
+  bottom: 0;
+}
+.cobalt_pages .profile_identity_body {
+  padding: 0 34px 29px;
+  gap: 25px;
+}
+.cobalt_pages .profile_identity_main {
+  padding-top: 23px;
+}
+.cobalt_pages .profile_name_row h2 {
+  font-size: 32px;
+  font-weight: 650;
+  letter-spacing: -0.055em;
+}
+.cobalt_pages .open_to_work {
+  background: #eaf4d8;
+  color: #40612e;
+  border: 1px solid #d7e8ba;
+  border-radius: 20px;
+  padding: 5px 10px;
+  font-size: 9px;
+}
+.cobalt_pages .profile_title {
+  color: var(--ink);
+  font-size: 14px;
+  margin-top: 7px;
+}
+.cobalt_pages .profile_meta {
+  color: var(--muted);
+  font-size: 11px;
+  gap: 18px;
+  margin-top: 13px;
+}
+.cobalt_pages .profile_navigation {
+  padding-inline: 34px;
+  border-color: var(--line);
+  background: #fff;
+}
+.cobalt_pages .profile_navigation nav > a {
+  color: var(--muted);
+  font-size: 12px;
+  padding-block: 18px;
+}
+.cobalt_pages .profile_navigation nav > a.active {
+  color: var(--accent);
+  font-weight: 650;
+}
+.cobalt_pages .profile_navigation nav > a.active:after {
+  background: var(--accent);
+  height: 3px;
+}
+.cobalt_pages .profile_navigation nav {
+  overflow-y: hidden;
+}
+.cobalt_pages .profile_navigation > button {
+  color: var(--muted);
+  font-size: 11px;
+}
+.cobalt_pages .tab_dot {
+  background: var(--accent);
+}
+.cobalt_pages .profile_content_grid {
+  grid-template-columns: minmax(0, 1fr) 310px;
+  gap: 25px;
+  margin-top: 26px;
+}
+.cobalt_pages .profile_main_content {
+  display: flex;
+  flex-direction: column;
+  gap: 21px;
+}
+.cobalt_pages .profile_section {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 29px 32px;
+  margin: 0;
+}
+.cobalt_pages .profile_section_heading {
+  margin-bottom: 21px;
+}
+.cobalt_pages
+  :is(
+    .profile_section_heading h2,
+    .side_card_heading h2,
+    .experience_title h3,
+    .portfolio_caption h3,
+    .education_row h3,
+    .preferences_list dd,
+    .privacy_preference strong
+  ) {
+  color: var(--ink) !important;
+  font-weight: 600;
+}
+.cobalt_pages .profile_section_heading h2 {
+  font-size: 24px;
+  letter-spacing: -0.045em;
+}
+.cobalt_pages .about_text {
+  font-size: 13px;
+  line-height: 1.95;
+}
+.cobalt_pages .profile_skills {
+  gap: 9px;
+}
+.cobalt_pages .profile_skills > span {
+  background: #eef2ff;
+  border-color: #d8e2ff;
+  color: #3151ad;
+  font-size: 12px;
+  padding: 9px 13px;
+}
+.cobalt_pages
+  :is(
+    .experience_company,
+    .career_preferences dd,
+    .resume_document strong,
+    .contact_card > p
+  ) {
+  color: #44516c;
+}
+.cobalt_pages .experience_title h3 {
+  font-size: 16px;
+  letter-spacing: -0.03em;
+}
+.cobalt_pages .experience_title > span,
+.cobalt_pages .experience_tags > span {
+  color: var(--muted);
+  font-size: 10px;
+}
+.cobalt_pages .experience_description {
+  font-size: 12px;
+}
+.cobalt_pages .experience_timeline > article:first-child:before {
+  border-color: #dbe3f7;
+}
+.cobalt_pages .experience_company > .verified_small {
+  color: var(--accent);
+}
+.cobalt_pages .portfolio_item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+.cobalt_pages .portfolio_art {
+  height: 210px;
+  background: #e1e8ff;
+}
+.cobalt_pages .project_mini_window {
+  background: #fff;
+  border-color: #cad5f6;
+  box-shadow: 0 12px 20px #1c357c13;
+  transform: rotate(-7deg);
+}
+.cobalt_pages .project_mini_window > span {
+  font-family: var(--sans);
+  font-weight: 600;
+  font-size: 20px;
+  color: var(--ink);
+  letter-spacing: -0.04em;
+}
+.cobalt_pages .mini_columns > span {
+  background: #cad7ff;
+}
+.cobalt_pages .mini_columns > span:nth-child(2) {
+  background: #e2efc5;
+}
+.cobalt_pages .mini_columns > span:nth-child(3) {
+  background: #e3d6fa;
+}
+.cobalt_pages .project_annotation {
+  font-family: var(--sans);
+  font-size: 20px;
+  letter-spacing: -0.05em;
+  font-weight: 650;
+  color: var(--accent);
+}
+.cobalt_pages .project_two {
+  background: #e8e1f7;
+}
+.cobalt_pages .design_letter {
+  font-family: var(--sans);
+  font-size: 83px;
+  font-weight: 600;
+  letter-spacing: -0.065em;
+  color: #594594;
+}
+.cobalt_pages .design_letter > span {
+  color: var(--accent);
+}
+.cobalt_pages .design_swatches > i {
+  background: var(--accent);
+}
+.cobalt_pages .design_swatches > i:nth-child(2) {
+  background: var(--lime);
+}
+.cobalt_pages .design_swatches > i:nth-child(3) {
+  background: #152247;
+}
+.cobalt_pages .design_swatches > i:nth-child(4) {
+  background: #fff;
+}
+.cobalt_pages .design_system_tag {
+  color: #63508f;
+}
+.cobalt_pages .portfolio_caption {
+  padding: 19px;
+}
+.cobalt_pages .portfolio_caption h3 {
+  font-size: 14px;
+  letter-spacing: -0.03em;
+}
+.cobalt_pages .portfolio_caption > p,
+.cobalt_pages .education_row p {
+  color: var(--muted);
+  font-size: 11px;
+}
+.cobalt_pages .education_row > span {
+  background: #edf1ff;
+  color: var(--accent);
+  border-radius: 10px;
+}
+.cobalt_pages .profile_sidebar {
+  gap: 20px;
+}
+.cobalt_pages .profile_strength_card {
+  background: #152247;
+  border: 0;
+  border-radius: 14px;
+  padding: 27px;
+  position: relative;
+  overflow: hidden;
+}
+.cobalt_pages .profile_strength_card h2 {
+  color: #fff !important;
+  font-size: 29px;
+  line-height: 1.16;
+  letter-spacing: -0.05em;
+  font-weight: 550;
+  margin-top: 18px;
+}
+.cobalt_pages .profile_strength_card :is(p, .eyebrow_label, .strength_caption) {
+  color: #c4d0e7;
+  font-size: 11px;
+}
+.cobalt_pages .profile_strength_card .eyebrow_label {
+  font-size: 8px;
+}
+.cobalt_pages .strength_star {
+  color: var(--lime);
+  font-size: 32px;
+}
+.cobalt_pages .strength_bar {
+  height: 7px;
+  background: #354565;
+  border-radius: 9px;
+  margin-top: 25px;
+}
+.cobalt_pages .strength_bar > span {
+  background: var(--lime);
+}
+.cobalt_pages .strength_caption {
+  gap: 5px;
+  font-size: 9px !important;
+}
+.cobalt_pages .strength_caption > strong {
+  color: var(--lime);
+  font-size: 9px;
+}
+.cobalt_pages .profile_strength_card > .text_link {
+  color: var(--lime);
+  font-size: 11px;
+  margin-top: 25px;
+}
+.cobalt_pages .profile_side_card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 24px;
+}
+.cobalt_pages .side_card_heading h2 {
+  font-size: 16px;
+  letter-spacing: -0.025em;
+}
+.cobalt_pages
+  :is(
+    .career_preferences dt,
+    .resume_document div > span,
+    .contact_card > span,
+    .private_label,
+    .resume_privacy
+  ) {
+  color: var(--muted);
+  font-size: 10px;
+}
+.cobalt_pages .career_preferences dd {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.cobalt_pages .career_preferences .private_label {
+  color: var(--muted);
+  font-size: 8px;
+  background: #edf1fb;
+}
+.cobalt_pages .resume_file_icon {
+  background: #e8edff;
+  color: var(--accent);
+  border-color: #d5dffc;
+}
+.cobalt_pages .resume_document strong {
+  font-size: 12px;
+}
+.cobalt_pages .resume_document div > span {
+  font-size: 9px;
+}
+.cobalt_pages .contact_card > p {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.cobalt_pages .profile_quiet_note {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.9;
+}
+.cobalt_pages .profile_quiet_note .career_companion {
+  flex-shrink: 0;
+}
+.cobalt_pages .public_preview_notice {
+  background: #e6edff;
+  color: #385393;
+  border-color: #cbd7f9;
+  border-radius: 9px;
+}
+.cobalt_pages .profile_stats {
+  gap: 15px;
+}
+.cobalt_pages .profile_stats > div {
+  background: #edf1ff;
+  border: 1px solid #dce4fb;
+  border-radius: 12px;
+  padding: 20px;
+}
+.cobalt_pages .profile_stats > div:nth-child(2) {
+  background: #eee7fa;
+  border-color: #e3d8f4;
+}
+.cobalt_pages .profile_stats > div:nth-child(3) {
+  background: #eaf1d9;
+  border-color: #dce8c7;
+}
+.cobalt_pages .profile_stats strong {
+  color: var(--accent) !important;
+  font-size: 39px;
+  font-family: var(--sans);
+  font-weight: 550;
+  letter-spacing: -0.05em;
+}
+.cobalt_pages
+  :is(
+    .profile_stats span,
+    .profile_chart strong,
+    .application_list h3,
+    .preferences_list dt,
+    .privacy_preference p,
+    .preferences_description
+  ) {
+  color: var(--muted) !important;
+}
+.cobalt_pages
+  :is(
+    .profile_stats small,
+    .profile_chart span,
+    .application_list p,
+    .application_list > a > span,
+    .activity_empty > p
+  ) {
+  color: var(--muted);
+  font-size: 10px;
+}
+.cobalt_pages .profile_stats > div > svg {
+  color: var(--accent);
+}
+.cobalt_pages .profile_chart {
+  border-color: var(--line);
+}
+.cobalt_pages .profile_chart strong {
+  font-size: 13px;
+}
+.cobalt_pages .activity_empty {
+  background: #f3f6ff;
+  border-radius: 12px;
+}
+.cobalt_pages .activity_empty h3 {
+  color: var(--ink) !important;
+  font-family: var(--sans);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+}
+.cobalt_pages .preferences_list > div,
+.cobalt_pages .privacy_preference {
+  border-color: var(--line);
+}
+.cobalt_pages .privacy_preference strong {
+  font-size: 13px;
+}
+.cobalt_pages .privacy_preference p {
+  font-size: 11px;
+}
+.cobalt_pages .privacy_switch {
+  background: #d5ddec;
+}
+.cobalt_pages .privacy_switch.enabled {
+  background: var(--accent);
+}
+.cobalt_pages .profile_section_heading > .icon_button,
+.cobalt_pages .side_card_heading .icon_button,
+.cobalt_pages .contact_card .side_card_heading {
+  color: var(--accent);
+}
+@keyframes product_arrive {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+.cobalt_pages .discovery_art .career_companion {
+  animation: product_arrive 0.8s ease-out both;
+}
+
+@media (max-width: 1150px) {
+  .cobalt_pages .portal_container {
+    width: calc(100% - 64px);
+  }
+  .cobalt_pages .search_workspace {
+    grid-template-columns: 205px minmax(0, 1fr);
+    gap: 24px;
+  }
+  .cobalt_pages .search_intro h1 {
+    font-size: 54px;
+  }
+  .cobalt_pages .discovery_art {
+    margin-right: 0;
+    scale: 0.9;
+    transform-origin: right center;
+  }
+  .cobalt_pages .search_sidebar {
+    padding: 20px 17px;
+  }
+  .cobalt_pages .results_topline h2 > span {
+    display: none;
+  }
+  .cobalt_pages .job_card_cover {
+    padding: 20px;
+  }
+  .cobalt_pages .job_card_content {
+    padding: 18px 20px 0;
+  }
+  .cobalt_pages .job_card h3 {
+    font-size: 25px !important;
+    min-height: 56px;
+  }
+  .cobalt_pages .job_summary {
+    font-size: 11px;
+    min-height: 76px;
+  }
+  .cobalt_pages .job_card_bottom strong {
+    font-size: 20px;
+  }
+  .cobalt_pages .job_card_foot {
+    gap: 6px;
+    font-size: 8px;
+  }
+  .cobalt_pages .job_card_foot .easy_apply {
+    font-size: 8px;
+  }
+  .cobalt_pages .detail_grid,
+  .cobalt_pages .profile_content_grid {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 25px;
+  }
+  .cobalt_pages .detail_title_line h1 {
+    font-size: 56px;
+    max-width: 660px;
+  }
+  .cobalt_pages .detail_title_line p {
+    max-width: 580px;
+  }
+  .cobalt_pages .detail_arch_art {
+    right: 0;
+    opacity: 0.7;
+  }
+  .cobalt_pages .job_description {
+    padding: 25px;
+  }
+  .cobalt_pages .detail_tabs {
+    gap: 18px;
+  }
+  .cobalt_pages .detail_tabs > a {
+    font-size: 10px;
+  }
+  .cobalt_pages .description_section h2 {
+    font-size: 31px;
+  }
+  .cobalt_pages .detail_company_card {
+    padding: 23px;
+  }
+  .cobalt_pages .job_facts_strip > div + div {
+    padding-left: 18px;
+  }
+  .cobalt_pages .job_facts_strip strong {
+    font-size: 14px;
+  }
+  .cobalt_pages .profile_section {
+    padding: 25px;
+  }
+  .cobalt_pages .profile_identity_body {
+    padding-inline: 28px;
+    gap: 19px;
+  }
+  .cobalt_pages .profile_name_row h2 {
+    font-size: 28px;
+  }
+  .cobalt_pages .profile_meta {
+    gap: 12px;
+    font-size: 10px;
+  }
+  .cobalt_pages .profile_cover > .profile_cover_companion {
+    right: 90px;
+  }
+  .cobalt_pages .profile_strength_card {
+    padding: 24px;
+  }
+  .cobalt_pages .profile_strength_card h2 {
+    font-size: 26px;
+  }
+  .cobalt_pages .portfolio_art {
+    height: 175px;
+  }
+  .cobalt_pages .project_annotation {
+    font-size: 18px;
+  }
+  .cobalt_pages .profile_stats > div {
+    padding: 16px;
+  }
+  .cobalt_pages .profile_stats strong {
+    font-size: 33px;
+  }
+}
+@media (max-width: 900px) {
+  .cobalt_pages .filter_title h2 {
+    font-size: 14px;
+  }
+  .cobalt_pages .filter_title > button {
+    white-space: nowrap;
+  }
+  .cobalt_pages .search_workspace {
+    grid-template-columns: 185px minmax(0, 1fr);
+    gap: 20px;
+  }
+  .cobalt_pages .search_intro h1 {
+    font-size: 46px;
+  }
+  .cobalt_pages .discovery_art {
+    width: 220px;
+    scale: 0.85;
+    margin-left: -20px;
+  }
+  .cobalt_pages .results_jobs.grid_view {
+    grid-template-columns: 1fr;
+  }
+  .cobalt_pages .results_jobs.list_view .job_card {
+    display: flex;
+  }
+  .cobalt_pages .job_card h3 {
+    min-height: 0;
+    font-size: 27px !important;
+    margin-top: 21px;
+    max-width: 85%;
+  }
+  .cobalt_pages .job_summary {
+    min-height: 0;
+  }
+  .cobalt_pages .job_card_cover:after {
+    top: 54px;
+  }
+  .cobalt_pages .results_controls {
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+  .cobalt_pages .results_display_controls {
+    margin-left: auto;
+  }
+  .cobalt_pages .job_card_bottom strong {
+    font-size: 22px;
+  }
+  .cobalt_pages .job_card_foot {
+    font-size: 9px;
+  }
+  .cobalt_pages .job_card_foot .easy_apply {
+    font-size: 9px;
+  }
+  .cobalt_pages .detail_grid {
+    grid-template-columns: minmax(0, 1fr) 245px;
+    gap: 20px;
+  }
+  .cobalt_pages .detail_title_line h1 {
+    font-size: 50px;
+  }
+  .cobalt_pages .detail_company_line {
+    align-items: start;
+  }
+  .cobalt_pages .detail_company_name {
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .cobalt_pages .detail_actions {
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: end;
+  }
+  .cobalt_pages .detail_actions .button {
+    font-size: 10px;
+    padding: 10px 12px;
+  }
+  .cobalt_pages .detail_title_line p {
+    max-width: 500px;
+    font-size: 12px;
+  }
+  .cobalt_pages .detail_tier {
+    font-size: 8px;
+  }
+  .cobalt_pages .job_facts_strip > div {
+    gap: 8px;
+    padding-left: 0;
+  }
+  .cobalt_pages .job_facts_strip > div + div {
+    padding-left: 13px;
+  }
+  .cobalt_pages .job_facts_strip > div > span {
+    font-size: 7px;
+  }
+  .cobalt_pages .job_facts_strip strong {
+    font-size: 12px;
+  }
+  .cobalt_pages .job_facts_strip > div > svg {
+    width: 17px;
+  }
+  .cobalt_pages .job_description {
+    padding: 23px;
+  }
+  .cobalt_pages .detail_tabs {
+    gap: 16px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .cobalt_pages .detail_tabs > a {
+    font-size: 10px;
+  }
+  .cobalt_pages .description_section h2 {
+    font-size: 28px;
+  }
+  .cobalt_pages .benefits_grid > div {
+    padding: 17px;
+  }
+  .cobalt_pages .detail_company_card {
+    padding: 20px;
+  }
+  .cobalt_pages .hiring_activity_card {
+    padding: 20px;
+  }
+  .cobalt_pages .hiring_metrics {
+    gap: 10px;
+  }
+  .cobalt_pages .hiring_metrics strong {
+    font-size: 24px;
+  }
+  .cobalt_pages .hiring_metrics span {
+    font-size: 8px;
+  }
+  .cobalt_pages .apply_section {
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+  }
+  .cobalt_pages .apply_section h2 {
+    font-size: 27px;
+  }
+  .cobalt_pages .profile_content_grid {
+    grid-template-columns: minmax(0, 1fr) 245px;
+    gap: 20px;
+  }
+  .cobalt_pages .profile_page_intro h1 {
+    font-size: 41px;
+  }
+  .cobalt_pages .profile_section {
+    padding: 23px;
+  }
+  .cobalt_pages .profile_section_heading h2 {
+    font-size: 21px;
+  }
+  .cobalt_pages .profile_strength_card {
+    padding: 21px;
+  }
+  .cobalt_pages .profile_strength_card h2 {
+    font-size: 24px;
+  }
+  .cobalt_pages .profile_side_card {
+    padding: 20px;
+  }
+  .cobalt_pages .profile_meta {
+    flex-wrap: wrap;
+  }
+  .cobalt_pages .portfolio_grid {
+    grid-template-columns: 1fr;
+  }
+  .cobalt_pages .portfolio_art {
+    height: 200px;
+  }
+  .cobalt_pages .profile_stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .cobalt_pages .profile_stats > div {
+    display: grid;
+    grid-template-columns: 24px 1fr auto;
+    align-items: center;
+    gap: 6px 10px;
+    padding: 17px;
+  }
+  .cobalt_pages .profile_stats strong {
+    grid-column: 3;
+    grid-row: 1/3;
+  }
+  .cobalt_pages .profile_stats span {
+    grid-column: 2;
+    grid-row: 1;
+    font-size: 11px;
+  }
+  .cobalt_pages .profile_stats small {
+    grid-column: 2;
+    grid-row: 2;
+    font-size: 9px;
+  }
+}
+@media (max-width: 700px) {
+  .cobalt_pages .portal_container {
+    width: calc(100% - 40px);
+  }
+  .cobalt_pages .announcement {
+    display: none;
+  }
+  .cobalt_pages .header_inner {
+    min-height: 72px;
+  }
+  .cobalt_pages .portal_logo {
+    font-size: 25px;
+  }
+  .cobalt_pages .portal_header .header_actions {
+    gap: 10px;
+  }
+  .cobalt_pages .portal_header .nav_divider {
+    display: none;
+  }
+  .cobalt_pages .portal_header .saved_nav > span:not(.small_count) {
+    display: none;
+  }
+  .cobalt_pages .avatar_mini {
+    width: 31px;
+    height: 31px;
+    font-size: 10px;
+  }
+  .cobalt_pages .footer_bottom {
+    gap: 16px;
+    font-size: 9px;
+    line-height: 1.8;
+  }
+  .cobalt_pages .search_intro {
+    padding: 27px 0 24px;
+  }
+  .cobalt_pages .search_intro_heading {
+    min-height: 0;
+    align-items: start;
+    gap: 0;
+    padding-bottom: 0;
+  }
+  .cobalt_pages .search_intro_heading > div:first-child {
+    position: relative;
+    z-index: 1;
+  }
+  .cobalt_pages .search_intro h1 {
+    font-size: clamp(34px, 9.7vw, 45px);
+    max-width: 100%;
+    margin-top: 15px;
+  }
+  .cobalt_pages .search_intro .eyebrow_label {
+    font-size: 8px;
+    letter-spacing: 0.1em;
+  }
+  .cobalt_pages .search_intro_heading p {
+    font-size: 11px;
+    line-height: 1.8;
+    max-width: 245px;
+    margin-top: 17px;
+  }
+  .cobalt_pages .discovery_art {
+    position: absolute;
+    right: 5px;
+    bottom: 0;
+    width: 130px;
+    height: 160px;
+    margin: 0;
+    scale: 0.56;
+    transform-origin: right bottom;
+    opacity: 1;
+  }
+  .cobalt_pages .discovery_arch {
+    left: 0;
+  }
+  .cobalt_pages .discovery_art .career_companion {
+    left: -18px;
+  }
+  .cobalt_pages .discovery_ticket {
+    right: -15px;
+    bottom: -12px;
+    font-size: 6px;
+    padding: 10px;
+  }
+  .cobalt_pages .discovery_ticket strong {
+    font-size: 10px;
+  }
+  .cobalt_pages .discovery_spark {
+    right: -5px;
+    top: -15px;
+  }
+  .cobalt_pages .results_search {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 9px;
+    padding: 13px;
+    margin-top: 25px;
+    border-radius: 12px;
+  }
+  .cobalt_pages .results_search > label {
+    padding: 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    min-height: 44px;
+    width: 100%;
+    flex: auto;
+  }
+  .cobalt_pages .results_search > label + label {
+    padding: 0 12px;
+    margin: 0;
+    border: 1px solid var(--line);
+  }
+  .cobalt_pages .results_search input {
+    font-size: 11px;
+    padding: 10px 0;
+  }
+  .cobalt_pages .results_search .button {
+    margin: 0;
+    min-height: 44px;
+    justify-content: space-between;
+    font-size: 11px;
+  }
+  .cobalt_pages .search_workspace {
+    grid-template-columns: 1fr;
+    padding-top: 26px;
+    gap: 0;
+    padding-bottom: 40px;
+  }
+  .cobalt_pages .search_sidebar {
+    display: none;
+  }
+  .cobalt_pages .results_topline {
+    margin-bottom: 20px;
+    gap: 10px;
+  }
+  .cobalt_pages .results_topline h2 {
+    font-size: 21px;
+  }
+  .cobalt_pages .results_topline .eyebrow_label {
+    font-size: 8px;
+  }
+  .cobalt_pages .results_topline > .button {
+    font-size: 9px;
+    padding: 8px 10px;
+    min-height: 34px;
+  }
+  .cobalt_pages .results_controls {
+    gap: 12px;
+    align-items: center;
+  }
+  .cobalt_pages .results_quick_filters {
+    gap: 8px;
+  }
+  .cobalt_pages .mobile_filter_button {
+    display: inline-flex;
+  }
+  .cobalt_pages .quick_filter {
+    padding: 7px 11px;
+    font-size: 10px;
+  }
+  .cobalt_pages .results_display_controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .cobalt_pages .sort_control > span {
+    display: inline;
+    font-size: 10px;
+  }
+  .cobalt_pages .sort_control select {
+    font-size: 11px;
+  }
+  .cobalt_pages .view_switch {
+    display: none;
+  }
+  .cobalt_pages .results_jobs {
+    gap: 18px;
+  }
+  .cobalt_pages .job_card_cover {
+    padding: 22px;
+  }
+  .cobalt_pages .job_card h3 {
+    font-size: 28px !important;
+    max-width: 90%;
+    margin: 22px 0 17px;
+    min-height: 0;
+  }
+  .cobalt_pages .job_card .company_logo {
+    width: 41px !important;
+    height: 41px !important;
+  }
+  .cobalt_pages .job_card .company_name {
+    font-size: 13px;
+  }
+  .cobalt_pages .job_card .job_posted {
+    font-size: 9px;
+  }
+  .cobalt_pages .job_card_content {
+    padding: 19px 22px 0;
+  }
+  .cobalt_pages .job_summary {
+    font-size: 12px;
+    min-height: 0 !important;
+  }
+  .cobalt_pages .job_tags > span {
+    font-size: 9px;
+  }
+  .cobalt_pages .job_card_bottom strong {
+    font-size: 22px;
+  }
+  .cobalt_pages .job_card_foot {
+    font-size: 8px;
+    gap: 6px;
+  }
+  .cobalt_pages .job_card_foot .easy_apply {
+    font-size: 8px;
+  }
+  .cobalt_pages .pagination {
+    flex-wrap: wrap;
+    gap: 18px;
+    margin-top: 25px;
+  }
+  .cobalt_pages .pagination > span {
+    font-size: 10px;
+  }
+  .cobalt_pages .search_bottom_note {
+    font-size: 10px;
+  }
+  .cobalt_pages .empty_state {
+    padding: 35px 22px;
+  }
+  .cobalt_pages .empty_state :is(h2, h3) {
+    font-size: 26px;
+  }
+  .cobalt_pages .breadcrumbs {
+    padding-block: 19px;
+    font-size: 9px;
+    gap: 8px;
+  }
+  .cobalt_pages .detail_hero {
+    padding-top: 27px;
+  }
+  .cobalt_pages .detail_company_line {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    align-items: stretch;
+  }
+  .cobalt_pages .detail_company_line .company_logo {
+    width: 43px !important;
+    height: 43px !important;
+  }
+  .cobalt_pages .detail_company_name {
+    font-size: 15px;
+    gap: 8px;
+  }
+  .cobalt_pages .detail_company_line .job_posted {
+    font-size: 9px;
+  }
+  .cobalt_pages .verified_company {
+    font-size: 7px;
+    padding: 3px 5px;
+  }
+  .cobalt_pages .detail_actions {
+    justify-content: start;
+    gap: 9px;
+  }
+  .cobalt_pages .detail_actions .button {
+    font-size: 10px;
+    min-height: 39px;
+    padding: 10px 13px;
+  }
+  .cobalt_pages .detail_title_line {
+    margin-top: 28px;
+    display: block;
+  }
+  .cobalt_pages .detail_title_line h1 {
+    font-size: 43px;
+    line-height: 1.08;
+    max-width: 100%;
+  }
+  .cobalt_pages .detail_title_line p {
+    font-size: 12px;
+    line-height: 1.9;
+    margin-top: 19px;
+  }
+  .cobalt_pages .detail_tier {
+    margin-top: 17px;
+    font-size: 8px;
+    transform: none;
+  }
+  .cobalt_pages .detail_arch_art {
+    right: -110px;
+    top: 100px;
+    opacity: 0.45;
+    width: 250px;
+    height: 310px;
+  }
+  .cobalt_pages .detail_location {
+    font-size: 9px;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  .cobalt_pages .job_facts_strip {
+    grid-template-columns: 1fr 1fr;
+    margin-top: 26px;
+    padding-block: 7px;
+    gap: 0;
+  }
+  .cobalt_pages .job_facts_strip > div {
+    padding: 18px 0;
+    gap: 10px;
+  }
+  .cobalt_pages .job_facts_strip > div + div {
+    padding-left: 0;
+    border: 0;
+  }
+  .cobalt_pages .job_facts_strip > div:nth-child(2n) {
+    padding-left: 17px;
+    border-left: 1px solid #ffffff20;
+  }
+  .cobalt_pages .job_facts_strip > div:nth-child(n + 3) {
+    border-top: 1px solid #ffffff20;
+  }
+  .cobalt_pages .job_facts_strip > div > span {
+    font-size: 7px;
+    letter-spacing: 0.07em;
+  }
+  .cobalt_pages .job_facts_strip strong {
+    font-size: 13px;
+  }
+  .cobalt_pages .job_facts_strip > div > svg {
+    width: 16px;
+  }
+  .cobalt_pages .detail_grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    padding-block: 25px 35px;
+  }
+  .cobalt_pages .job_description {
+    padding: 23px 20px;
+    border-radius: 13px;
+  }
+  .cobalt_pages .detail_tabs {
+    margin-bottom: 25px;
+    gap: 21px;
+  }
+  .cobalt_pages .detail_tabs > a {
+    font-size: 10px;
+  }
+  .cobalt_pages .description_section h2 {
+    font-size: 29px;
+  }
+  .cobalt_pages .description_section h3 {
+    font-size: 16px;
+  }
+  .cobalt_pages .description_section > .eyebrow_label {
+    font-size: 8px;
+  }
+  .cobalt_pages :is(.job_description p, .description_list) {
+    font-size: 12px;
+    line-height: 1.9;
+  }
+  .cobalt_pages .encouragement_note {
+    padding: 18px;
+    gap: 12px;
+  }
+  .cobalt_pages .encouragement_note strong {
+    font-size: 12px;
+  }
+  .cobalt_pages .encouragement_note p {
+    font-size: 11px;
+  }
+  .cobalt_pages .benefits_grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .cobalt_pages .benefits_grid > div {
+    padding: 17px 13px;
+  }
+  .cobalt_pages .benefits_grid strong {
+    font-size: 12px;
+  }
+  .cobalt_pages .benefits_grid p {
+    font-size: 10px;
+  }
+  .cobalt_pages .hiring_steps h3 {
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: start;
+  }
+  .cobalt_pages .hiring_steps p {
+    font-size: 11px;
+  }
+  .cobalt_pages .hiring_steps h3 > span {
+    font-size: 9px;
+  }
+  .cobalt_pages .apply_section {
+    padding: 21px;
+  }
+  .cobalt_pages .apply_section h2 {
+    font-size: 29px;
+  }
+  .cobalt_pages .apply_section .button {
+    width: 100%;
+    font-size: 11px;
+  }
+  .cobalt_pages .apply_footnote {
+    font-size: 9px;
+    white-space: normal;
+    align-items: start;
+  }
+  .cobalt_pages .apply_footnote svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .cobalt_pages .report_row {
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: 9px;
+  }
+  .cobalt_pages .detail_sidebar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .cobalt_pages .detail_company_card {
+    padding: 25px;
+  }
+  .cobalt_pages .detail_company_card > p {
+    font-size: 12px;
+  }
+  .cobalt_pages .detail_company_card dl > div {
+    font-size: 11px;
+  }
+  .cobalt_pages .hiring_activity_card {
+    padding: 25px;
+  }
+  .cobalt_pages .hiring_metrics strong {
+    font-size: 32px;
+  }
+  .cobalt_pages .hiring_metrics span {
+    font-size: 9px;
+  }
+  .cobalt_pages .detail_fairness_note {
+    justify-content: center;
+  }
+  .cobalt_pages .related_section {
+    padding-block: 37px;
+  }
+  .cobalt_pages .related_section .section_heading {
+    display: block;
+  }
+  .cobalt_pages .related_section .section_heading h2 {
+    font-size: 34px;
+  }
+  .cobalt_pages .related_section .text_link {
+    margin-top: 17px;
+    font-size: 11px;
+  }
+  .cobalt_pages .related_grid {
+    grid-template-columns: 1fr;
+    gap: 17px;
+  }
+  .cobalt_pages .profile_page {
+    padding-block: 28px 40px;
+  }
+  .cobalt_pages .profile_page_intro {
+    display: block;
+    margin-bottom: 24px;
+  }
+  .cobalt_pages .profile_page_intro h1 {
+    font-size: 40px;
+    line-height: 1.1;
+    margin-top: 13px;
+    max-width: 310px;
+  }
+  .cobalt_pages .profile_page_intro .eyebrow_label {
+    font-size: 8px;
+  }
+  .cobalt_pages .profile_page_intro > .button {
+    margin-top: 19px;
+    font-size: 10px;
+    padding: 10px 12px;
+  }
+  .cobalt_pages .profile_cover {
+    height: 142px;
+  }
+  .cobalt_pages .profile_cover > svg {
+    width: 100%;
+    object-fit: cover;
+  }
+  .cobalt_pages
+    .profile_cover
+    > span:not(.cover_star):not(.profile_cover_companion) {
+    left: 21px;
+    bottom: 39px;
+    font-size: 7px;
+    letter-spacing: 0.09em;
+    max-width: 165px;
+  }
+  .cobalt_pages .profile_cover .cover_star {
+    left: 21px;
+    top: 23px;
+    font-size: 30px;
+  }
+  .cobalt_pages .profile_cover > .profile_cover_companion {
+    right: 5px;
+    bottom: -7px;
+  }
+  .cobalt_pages .profile_cover_companion .career_companion {
+    width: 110px !important;
+  }
+  .cobalt_pages .profile_identity_body {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 0 21px 22px;
+    gap: 13px;
+  }
+  .cobalt_pages .profile_avatar {
+    width: 85px;
+    height: 85px;
+    font-size: 27px;
+    margin-top: -26px;
+    border-width: 5px;
+  }
+  .cobalt_pages .profile_identity_main {
+    width: 100%;
+    flex: auto;
+    order: 2;
+    padding-top: 1px;
+  }
+  .cobalt_pages .profile_name_row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+  }
+  .cobalt_pages .profile_name_row h2 {
+    font-size: 28px;
+  }
+  .cobalt_pages .open_to_work {
+    font-size: 8px;
+    padding: 4px 8px;
+  }
+  .cobalt_pages .profile_title {
+    font-size: 12px;
+    margin-top: 9px;
+  }
+  .cobalt_pages .profile_meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    font-size: 10px;
+    margin-top: 14px;
+  }
+  .cobalt_pages .profile_meta > span {
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .cobalt_pages .edit_profile_button {
+    position: static;
+    order: 1;
+    margin: 12px 0 0 auto;
+    align-self: start;
+    font-size: 9px;
+    padding: 9px 10px;
+    min-height: 33px;
+  }
+  .cobalt_pages .profile_navigation {
+    padding: 0 20px;
+    display: block;
+  }
+  .cobalt_pages .profile_navigation nav {
+    gap: 19px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .cobalt_pages .profile_navigation nav > a {
+    font-size: 10px;
+    padding: 16px 0;
+    white-space: nowrap;
+  }
+  .cobalt_pages .profile_navigation > button {
+    font-size: 10px;
+    padding-bottom: 16px;
+  }
+  .cobalt_pages .profile_content_grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    margin-top: 20px;
+  }
+  .cobalt_pages .profile_main_content {
+    gap: 17px;
+  }
+  .cobalt_pages .profile_section {
+    padding: 24px 21px;
+  }
+  .cobalt_pages .profile_section_heading {
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .cobalt_pages .profile_section_heading h2 {
+    font-size: 23px;
+    line-height: 1.2;
+  }
+  .cobalt_pages .section_label {
+    font-size: 7px;
+    letter-spacing: 0.06em;
+  }
+  .cobalt_pages .about_text {
+    font-size: 12px;
+    line-height: 1.95;
+  }
+  .cobalt_pages .profile_skills {
+    gap: 8px;
+  }
+  .cobalt_pages .profile_skills > span {
+    font-size: 10px;
+    padding: 8px 11px;
+  }
+  .cobalt_pages .experience_title h3 {
+    font-size: 15px;
+  }
+  .cobalt_pages .experience_company {
+    font-size: 10px;
+  }
+  .cobalt_pages .experience_description {
+    font-size: 11px;
+  }
+  .cobalt_pages .experience_title > span {
+    font-size: 9px;
+  }
+  .cobalt_pages .experience_tags > span {
+    font-size: 9px;
+  }
+  .cobalt_pages .experience_timeline > article {
+    gap: 13px;
+  }
+  .cobalt_pages .experience_timeline .company_logo {
+    width: 35px !important;
+    height: 35px !important;
+  }
+  .cobalt_pages .portfolio_grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .cobalt_pages .portfolio_art {
+    height: 195px;
+  }
+  .cobalt_pages .portfolio_caption {
+    padding: 18px;
+  }
+  .cobalt_pages .portfolio_caption h3 {
+    font-size: 14px;
+  }
+  .cobalt_pages .education_row h3 {
+    font-size: 14px;
+  }
+  .cobalt_pages .education_row p {
+    font-size: 10px;
+  }
+  .cobalt_pages .profile_sidebar {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 17px;
+  }
+  .cobalt_pages .profile_strength_card {
+    padding: 26px;
+  }
+  .cobalt_pages .profile_strength_card h2 {
+    font-size: 31px;
+  }
+  .cobalt_pages .profile_side_card {
+    padding: 24px;
+  }
+  .cobalt_pages .side_card_heading h2 {
+    font-size: 17px;
+  }
+  .cobalt_pages .profile_quiet_note {
+    justify-content: center;
+  }
+  .cobalt_pages .profile_stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .cobalt_pages .profile_stats > div {
+    padding: 18px;
+  }
+  .cobalt_pages .profile_stats strong {
+    font-size: 33px;
+  }
+  .cobalt_pages .profile_chart > div {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .cobalt_pages .profile_chart strong {
+    font-size: 12px;
+  }
+  .cobalt_pages .privacy_preference {
+    gap: 20px;
+  }
+  .cobalt_pages .privacy_switch {
+    flex-shrink: 0;
+  }
+  .cobalt_pages .preferences_description {
+    font-size: 12px;
+  }
+  .cobalt_pages .preferences_list dd {
+    font-size: 12px;
+  }
+  .cobalt_pages .preferences_list dt {
+    font-size: 11px;
+  }
+  .cobalt_pages .profile_section_heading > .button {
+    font-size: 9px;
+    padding: 8px;
+  }
+  .cobalt_pages .modal_heading h2 {
+    font-size: 25px;
+  }
+}
+@media (max-width: 370px) {
+  .cobalt_pages .portal_container {
+    width: calc(100% - 32px);
+  }
+  .cobalt_pages .header_actions {
+    gap: 5px;
+  }
+  .cobalt_pages .profile_nav > svg {
+    display: none;
+  }
+  .cobalt_pages .search_intro h1 {
+    font-size: 34px;
+    max-width: 100%;
+  }
+  .cobalt_pages .search_intro_heading p {
+    max-width: 195px;
+    font-size: 10px;
+  }
+  .cobalt_pages .discovery_art {
+    scale: 0.43;
+    right: 0;
+    bottom: -5px;
+  }
+  .cobalt_pages .search_intro .eyebrow_label {
+    font-size: 7px;
+  }
+  .cobalt_pages .job_card_cover {
+    padding: 20px;
+  }
+  .cobalt_pages .job_card_content {
+    padding: 18px 20px 0;
+  }
+  .cobalt_pages .job_card h3 {
+    font-size: 26px !important;
+  }
+  .cobalt_pages .tier_label {
+    display: none;
+  }
+  .cobalt_pages .detail_title_line h1 {
+    font-size: 38px;
+  }
+  .cobalt_pages .verified_company {
+    font-size: 6px;
+  }
+  .cobalt_pages .detail_company_name {
+    font-size: 14px;
+  }
+  .cobalt_pages .detail_actions .button {
+    font-size: 9px;
+    padding: 9px 10px;
+    gap: 7px;
+  }
+  .cobalt_pages .job_description {
+    padding: 22px 17px;
+  }
+  .cobalt_pages .description_section h2 {
+    font-size: 27px;
+  }
+  .cobalt_pages .benefits_grid {
+    grid-template-columns: 1fr;
+  }
+  .cobalt_pages .profile_page_intro h1 {
+    font-size: 36px;
+  }
+  .cobalt_pages .profile_navigation nav {
+    gap: 15px;
+  }
+  .cobalt_pages .profile_navigation nav > a {
+    font-size: 9px;
+  }
+  .cobalt_pages .profile_section {
+    padding: 22px 18px;
+  }
+  .cobalt_pages .profile_name_row h2 {
+    font-size: 26px;
+  }
+  .cobalt_pages .profile_identity_body {
+    padding-inline: 18px;
+  }
+  .cobalt_pages
+    .profile_cover
+    > span:not(.cover_star):not(.profile_cover_companion) {
+    max-width: 140px;
+    line-height: 1.8;
+  }
+  .cobalt_pages .profile_section_heading h2 {
+    font-size: 21px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cobalt_pages * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
