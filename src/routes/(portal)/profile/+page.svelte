@@ -2,6 +2,7 @@
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import Icon from "$lib/portal/icon.svelte";
+  import Companion from "$lib/portal/companion.svelte";
   import Company_logo from "$lib/portal/company_logo.svelte";
   import Modal from "$lib/portal/modal.svelte";
   import { profile, applications, saved_jobs, toast } from "$lib/portal/state";
@@ -169,23 +170,24 @@
           ><path
             d="M775 220V90a150 150 0 0 1 300 0v130"
             fill="none"
-            stroke="#aeb59a"
+            stroke="#8da4ff"
             stroke-width="32"
           /><path
             d="M820 220V92a105 105 0 0 1 210 0v128"
             fill="none"
-            stroke="#c6ccb4"
+            stroke="#6080ff"
             stroke-width="21"
-          /><circle cx="1084" cy="6" r="95" fill="#d8c8a4" /><path
+          /><circle cx="1084" cy="6" r="95" fill="#dfff8c" /><path
             d="M60 150C180-55 410 170 560 10"
             fill="none"
-            stroke="#b6bea1"
+            stroke="#c5d1ff"
             stroke-width="1"
             stroke-dasharray="3 6"
           /></svg
-        ><span>THERE’S MORE TO YOUR STORY.</span><span class="cover_star"
-          >✳</span
-        >
+        ><span>THERE’S MORE TO YOUR STORY.</span><span
+          class="profile_cover_companion"
+          aria-hidden="true"><Companion kind="peach" size={145} /></span
+        ><span class="cover_star">✳</span>
       </div>
       <div class="profile_identity_body">
         <div class="profile_avatar">
@@ -421,11 +423,11 @@
                   ><linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1"
                     ><stop
                       offset="0%"
-                      stop-color="#bdc8a9"
+                      stop-color="#a5b6ff"
                       stop-opacity=".5"
                     /><stop
                       offset="100%"
-                      stop-color="#bdc8a9"
+                      stop-color="#a5b6ff"
                       stop-opacity="0"
                     /></linearGradient
                   ></defs
@@ -439,7 +441,7 @@
                 /><path
                   d="M30 119C90 115 75 79 130 92S211 135 270 81 310 76 350 68 416 36 470 53 546 24 620 15"
                   fill="none"
-                  stroke="#78886a"
+                  stroke="#3155ef"
                   stroke-width="2.5"
                 /><g font-size="9" fill="#959d88" font-family="DM Sans"
                   ><text x="30" y="169">Week 1</text><text x="220" y="169"
@@ -637,7 +639,7 @@
             <span>Contact details stay private in this preview.</span>
           </section>
           <div class="profile_quiet_note">
-            <Icon name="heart" size={20} />
+            <Companion kind="blue" size={88} />
             <p>
               A career is a collection of chapters.<br />Make the next one
               yours.

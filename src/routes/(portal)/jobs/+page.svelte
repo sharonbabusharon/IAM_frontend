@@ -2,6 +2,7 @@
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import Icon from "$lib/portal/icon.svelte";
+  import Companion from "$lib/portal/companion.svelte";
   import Job_card from "$lib/portal/job_card.svelte";
   import Modal from "$lib/portal/modal.svelte";
   import Filter_panel from "$lib/portal/filter_panel.svelte";
@@ -15,7 +16,7 @@
   import { saved_jobs, saved_searches, toast } from "$lib/portal/state";
   let filters = filters_from_params($page.url.searchParams);
   let previous_search = $page.url.search;
-  let view = "list";
+  let view = "grid";
   let current_page = 1;
   let show_filters = false;
   let save_dialog = false;
@@ -126,7 +127,14 @@
               : "Meaningful roles. Thoughtful teams. A clearer way forward."}
           </p>
         </div>
-        <span class="search_header_art" aria-hidden="true">✳</span>
+        <div class="discovery_art" aria-hidden="true">
+          <span class="discovery_arch"></span><Companion
+            kind="blue"
+            size={150}
+          /><span class="discovery_ticket"
+            >GOOD WORK<br /><strong>YOUR WAY. ↗</strong></span
+          ><span class="discovery_spark">✳</span>
+        </div>
       </div>
       <form class="results_search" on:submit|preventDefault={sync}>
         <label
@@ -155,7 +163,7 @@
       </div>
       <Filter_panel bind:filters on:change={sync} />
       <div class="sidebar_note">
-        <Icon name="heart" size={20} />
+        <Companion kind="sage" size={90} />
         <h3>There’s no single right path.</h3>
         <p>
           Look for work that fits your skills, your life, and where you want to

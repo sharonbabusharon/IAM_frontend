@@ -1,5 +1,6 @@
 <script>
   import Icon from "$lib/portal/icon.svelte";
+  import Companion from "$lib/portal/companion.svelte";
   import Company_logo from "$lib/portal/company_logo.svelte";
   import Job_card from "$lib/portal/job_card.svelte";
   import Modal from "$lib/portal/modal.svelte";
@@ -81,6 +82,7 @@
     </nav>
   </div>
   <section class="detail_hero">
+    <div class="detail_arch_art" aria-hidden="true"><span></span><i>✳</i></div>
     <div class="portal_container">
       <div class="detail_company_line">
         <div class="company_identity">
@@ -88,12 +90,23 @@
           <div>
             <span class="detail_company_name"
               >{company.name}<span class="verified_company"
-                ><Icon name="shield" size={13} />Verified company</span
+                ><Icon name="shield" size={13} />Sample verified company</span
               ></span
             ><span class="job_posted">{company.sector} · {company.size}</span>
           </div>
         </div>
         <div class="detail_actions">
+          <button
+            class="button button_lime"
+            on:click={start_apply}
+            disabled={$applications.includes(job.id)}
+            >{$applications.includes(job.id)
+              ? "Applied in preview"
+              : "Apply for this role"}<Icon
+              name="arrow-up-right"
+              size={17}
+            /></button
+          >
           <button
             class="button button_outline button_small"
             class:saved={$saved_jobs.includes(job.id)}
@@ -317,7 +330,7 @@
         </div>
       </section>
       <div class="detail_fairness_note">
-        <Icon name="shield" size={22} />
+        <Companion kind="sage" size={90} />
         <p>
           Good work starts with a fair chance.<br /><strong
             >Your potential belongs here.</strong

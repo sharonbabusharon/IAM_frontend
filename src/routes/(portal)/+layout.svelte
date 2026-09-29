@@ -3,6 +3,7 @@
   import { page } from "$app/stores";
   import "$lib/portal/portal.css";
   import "$lib/portal/portal_pages.css";
+  import "$lib/portal/cobalt_pages.css";
   import Header from "$lib/portal/header.svelte";
   import Footer from "$lib/portal/footer.svelte";
   import Icon from "$lib/portal/icon.svelte";
@@ -22,20 +23,20 @@
 </script>
 
 <svelte:head
-  ><meta name="theme-color" content="#f8f7f3" /><link
+  ><meta name="theme-color" content="#f5f7ff" /><link
     rel="icon"
     href="/referise.svg"
     type="image/svg+xml"
   /></svelte:head
 >
-<div class="portal">
-  <Header />
+<div class="portal" class:cobalt_pages={$page.url.pathname !== "/"}>
+  {#if $page.url.pathname !== "/"}<Header />{/if}
   {#if offline}<div class="offline_notice" role="status">
       <Icon name="wifi" size={16} />You’re offline. Your saved preview is still
       here.
     </div>{/if}
   <slot />
-  <Footer compact={$page.url.pathname !== "/"} />
+  {#if $page.url.pathname !== "/"}<Footer compact />{/if}
   <div class="toast_region" aria-live="polite" aria-atomic="true">
     {#if $notification}<div class="portal_toast">
         <span class="toast_check"><Icon name="check" size={16} /></span
