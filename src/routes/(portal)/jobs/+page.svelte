@@ -1,6 +1,6 @@
 <script>
   import { page } from "$app/stores";
-  import { goto } from "$app/navigation";
+  import { goto, afterNavigate as after_navigate } from "$app/navigation";
   import Icon from "$lib/portal/icon.svelte";
   import Companion from "$lib/portal/companion.svelte";
   import Job_card from "$lib/portal/job_card.svelte";
@@ -12,9 +12,24 @@
     filters_to_params,
     default_filters,
     filter_jobs,
+    filter_error,
+    active_filter_labels,
   } from "$lib/portal/search";
-  import { saved_jobs, saved_searches, toast } from "$lib/portal/state";
+  import {
+    saved_jobs,
+    saved_searches,
+    applications,
+    search_filters,
+    viewing_currency,
+    toast,
+  } from "$lib/portal/state";
+  after_navigate(() => {
+    const current = filters_from_params($page.url.searchParams);
+    search_filters.set(current);
+    viewing_currency.set(current.currency);
+  });
   let filters = filters_from_params($page.url.searchParams);
+  let applied_filters = structuredClone(filters);
   let previous_search = $page.url.search;
   let view = "grid";
   let current_page = 1;
@@ -24,32 +39,37 @@
   const page_size = 6;
   $: if ($page.url.search !== previous_search) {
     filters = filters_from_params($page.url.searchParams);
+    applied_filters = structuredClone(filters);
     previous_search = $page.url.search;
     current_page = 1;
   }
-  $: results = filter_jobs(jobs, filters, $saved_jobs);
+  $: results = filter_jobs(jobs, applied_filters, $saved_jobs, $applications);
+  $: pending =
+    filters_to_params(filters).toString() !==
+    filters_to_params(applied_filters).toString();
   $: page_count = Math.max(1, Math.ceil(results.length / page_size));
   $: if (current_page > page_count) current_page = page_count;
   $: visible_jobs = results.slice(
     (current_page - 1) * page_size,
     current_page * page_size,
   );
-  $: active_filters = [
-    ...filters.modes.map((value) => ({ key: "modes", value })),
-    ...filters.categories.map((value) => ({ key: "categories", value })),
-    ...filters.levels.map((value) => ({ key: "levels", value })),
-    ...filters.types.map((value) => ({ key: "types", value })),
-  ];
-  $: filter_count =
-    active_filters.length +
-    Number(filters.easy) +
-    Number(Boolean(filters.currency)) +
-    Number(filters.min_salary > 0);
+  $: active_filters = active_filter_labels(applied_filters);
+  $: filter_count = active_filters.length;
   function sync() {
+    const error = filter_error(filters);
+    if (error) {
+      toast(error);
+      return;
+    }
+    filters = filters_from_params(filters_to_params(filters));
+    applied_filters = structuredClone(filters);
+    search_filters.set(structuredClone(filters));
+    viewing_currency.set(filters.currency);
+    show_filters = false;
     current_page = 1;
     const params = filters_to_params(filters);
     goto(`/jobs${params.size ? `?${params}` : ""}`, {
-      replaceState: true,
+      replaceState: false,
       noScroll: true,
       keepFocus: true,
     });
@@ -59,10 +79,12 @@
     sync();
   }
   function remove(key, value) {
-    const array_key = key;
     filters = {
       ...filters,
-      [array_key]: filters[array_key].filter((item) => item !== value),
+      [key]:
+        value === null
+          ? default_filters()[key]
+          : filters[key].filter((item) => item !== value),
     };
     sync();
   }
@@ -77,7 +99,10 @@
   }
   function save_search() {
     if (!search_name.trim()) return;
-    const query = filters_to_params({ ...filters, saved: false }).toString();
+    const query = filters_to_params({
+      ...applied_filters,
+      saved: false,
+    }).toString();
     saved_searches.update((value) =>
       [
         { name: search_name.trim(), query },
@@ -161,7 +186,19 @@
         <h2>Make it yours</h2>
         <button on:click={clear}>Reset all</button>
       </div>
-      <Filter_panel bind:filters on:change={sync} />
+      <form on:submit|preventDefault={sync}>
+        <Filter_panel bind:filters />
+        <div class="filter_submit">
+          <button type="submit" class="button button_dark button_full"
+            >Search opportunities</button
+          >
+          <p aria-live="polite">
+            {pending
+              ? "You have unapplied changes."
+              : "Your filters are up to date."}
+          </p>
+        </div>
+      </form>
       <div class="sidebar_note">
         <Companion kind="sage" size={90} />
         <h3>There’s no single right path.</h3>
@@ -218,10 +255,11 @@
             ><span>Sort by</span><select
               aria-label="Sort opportunities"
               bind:value={filters.sort}
-              on:change={sync}
-              ><option value="recommended">Recommended</option><option
-                value="newest">Newest first</option
-              ><option value="title">Job title A–Z</option></select
+              ><option value="recommended">Most relevant</option><option
+                value="salary">Highest salary</option
+              ><option value="newest">Newest first</option><option value="title"
+                >Job title A–Z</option
+              ></select
             ></label
           >
           <div class="view_switch" aria-label="Results layout">
@@ -241,37 +279,14 @@
           </div>
         </div>
       </div>
-      {#if active_filters.length || filters.easy || filters.currency || filters.query || filters.location}<div
-          class="active_filter_row"
-        >
-          {#if filters.query}<button
-              on:click={() => {
-                filters.query = "";
-                sync();
-              }}>“{filters.query}”<Icon name="close" size={11} /></button
-            >{/if}{#if filters.location}<button
-              on:click={() => {
-                filters.location = "";
-                sync();
-              }}>{filters.location}<Icon name="close" size={11} /></button
-            >{/if}{#each active_filters as filter}<button
+      {#if pending}<p class="pending_filters" role="status">
+          Filters changed. Select “Search opportunities” to update results.
+        </p>{/if}
+      {#if active_filters.length}<div class="active_filter_row">
+          {#each active_filters as filter}<button
               on:click={() => remove(filter.key, filter.value)}
-              >{filter.value}<Icon name="close" size={11} /></button
-            >{/each}{#if filters.easy}<button
-              on:click={() => {
-                filters.easy = false;
-                sync();
-              }}>Easy apply<Icon name="close" size={11} /></button
-            >{/if}{#if filters.currency}<button
-              on:click={() => {
-                filters.currency = "";
-                filters.min_salary = 0;
-                sync();
-              }}
-              >{filters.currency}{filters.min_salary
-                ? ` · ${filters.min_salary.toLocaleString()}+`
-                : ""}<Icon name="close" size={11} /></button
-            >{/if}<button class="clear_filter_link" on:click={clear}
+              >{filter.label}<Icon name="close" size={11} /></button
+            >{/each}<button class="clear_filter_link" on:click={clear}
             >Clear all</button
           >
         </div>{/if}
@@ -283,7 +298,10 @@
           class:list_view={view === "list"}
           class:grid_view={view === "grid"}
         >
-          {#each visible_jobs as job (job.id)}<Job_card {job} />{/each}
+          {#each visible_jobs as job (job.id)}<Job_card
+              {job}
+              currency={applied_filters.currency}
+            />{/each}
         </div>
         <div class="pagination">
           <span
@@ -357,18 +375,16 @@
 {#if show_filters}<Modal
     title="Make your search yours"
     on:close={() => (show_filters = false)}
-    ><Filter_panel bind:filters on:change={sync} />
-    <div class="drawer_footer">
-      <button class="button button_outline" on:click={clear}>Reset all</button
-      ><button
-        class="button button_dark"
-        on:click={() => (show_filters = false)}
-        >Show {results.length} opportunities <Icon
-          name="arrow-right"
-          size={15}
-        /></button
-      >
-    </div></Modal
+    ><form on:submit|preventDefault={sync}>
+      <Filter_panel bind:filters scope="mobile" />
+      <div class="drawer_footer">
+        <button type="button" class="button button_outline" on:click={clear}
+          >Reset all</button
+        ><button class="button button_dark" type="submit"
+          >Search opportunities <Icon name="arrow-right" size={15} /></button
+        >
+      </div>
+    </form></Modal
   >{/if}
 {#if save_dialog}<Modal
     title="A search worth keeping"

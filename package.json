@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:portal": "node --test tests/portal_requirements.test.js",
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",

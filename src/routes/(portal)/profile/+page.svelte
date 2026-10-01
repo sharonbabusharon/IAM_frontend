@@ -1,13 +1,34 @@
 <script>
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
+  import { onDestroy as on_destroy } from "svelte";
+  import { profile_error } from "$lib/portal/profile_validation.js";
+  import Profile_fields from "$lib/portal/profile_fields.svelte";
+  import { notice_periods, location_name } from "$lib/portal/filter_options.js";
   import Icon from "$lib/portal/icon.svelte";
   import Companion from "$lib/portal/companion.svelte";
   import Company_logo from "$lib/portal/company_logo.svelte";
   import Modal from "$lib/portal/modal.svelte";
-  import { profile, applications, saved_jobs, toast } from "$lib/portal/state";
+  import {
+    profile,
+    applications,
+    saved_jobs,
+    resume_file,
+    toast,
+  } from "$lib/portal/state";
   import { default_profile, jobs, get_company } from "$lib/portal/data";
+  const weekly_views = [5, 7, 8, 6, 9, 12, 15];
+  const weekly_resume_views = [2, 1, 2, 3, 1, 4, 5];
+  const weekly_downloads = [0, 1, 1, 0, 2, 1, 1];
+  const week_days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  function chart_points(values) {
+    return values
+      .map((value, index) => `${30 + index * 96},${145 - value * 8}`)
+      .join(" ");
+  }
   let editing = "";
+  let expanded_skills = false;
+  let resume_url = "";
   let draft = {
     ...default_profile,
     skills: [...default_profile.skills],
@@ -18,7 +39,27 @@
   let project_open = "";
   let sharing = false;
   let share_url = "";
+  $: if ($resume_file && !resume_url)
+    resume_url = URL.createObjectURL($resume_file);
+  on_destroy(() => {
+    if (resume_url) URL.revokeObjectURL(resume_url);
+  });
   const privacy_options = [
+    {
+      key: "current_salary_private",
+      title: "Keep current salary private",
+      text: "Hide your current compensation from public visitors.",
+    },
+    {
+      key: "hourly_private",
+      title: "Keep hourly rate private",
+      text: "Hide your hourly rate from public visitors.",
+    },
+    {
+      key: "contact_private",
+      title: "Keep contact details private",
+      text: "Hide your email and phone from public visitors.",
+    },
     {
       key: "visible",
       title: "Public profile",
@@ -43,7 +84,10 @@
   $: current_tab = ["overview", "activity", "preferences"].includes(
     $page.url.searchParams.get("tab") ?? "",
   )
-    ? $page.url.searchParams.get("tab")
+    ? $page.url.searchParams.get("public") === "1" &&
+      $page.url.searchParams.get("tab") === "preferences"
+      ? "overview"
+      : $page.url.searchParams.get("tab")
     : "overview";
   $: initials = $profile.name
     .split(/\s+/)
@@ -59,7 +103,7 @@
   ].filter(Boolean).length;
   $: public_preview = $page.url.searchParams.get("public") === "1";
   function edit(section) {
-    draft = { ...$profile, skills: [...$profile.skills] };
+    draft = structuredClone($profile);
     skill_text = draft.skills.join(", ");
     editing = section;
   }
@@ -68,6 +112,33 @@
       toast("Add your name and professional title before saving.");
       return;
     }
+    const error = profile_error(draft);
+    if (error) {
+      toast(error);
+      return;
+    }
+    if (editing === "profile")
+      draft.experience = `${draft.experience_years || 0} years`;
+    draft.current_salary = Number(draft.current_salary) || 0;
+    draft.hourly_rate = Number(draft.hourly_rate) || 0;
+    if (editing === "about") draft.about_updated = new Date().toISOString();
+    if (editing === "preferences")
+      draft.expected =
+        new Intl.NumberFormat("en", {
+          style: "currency",
+          currency: draft.salary_currency,
+          maximumFractionDigits: 0,
+        }).format(draft.expected_salary) + " / year";
+    if (editing === "background")
+      draft.experiences = draft.experiences.map((entry, index) => ({
+        ...entry,
+        verification:
+          JSON.stringify(entry) !== JSON.stringify($profile.experiences[index])
+            ? entry.verification === "Verified"
+              ? "Pending"
+              : "Unverified"
+            : entry.verification,
+      }));
     if (editing === "skills")
       draft.skills = [
         ...new Set(
@@ -76,7 +147,7 @@
             .map((skill) => skill.trim())
             .filter(Boolean),
         ),
-      ].slice(0, 16);
+      ];
     profile.set({
       ...draft,
       name: draft.name.trim(),
@@ -98,8 +169,43 @@
       sharing = true;
     }
   }
+  function month_label(value) {
+    return value
+      ? new Date(`${value}-01T12:00:00`).toLocaleDateString("en", {
+          month: "short",
+          year: "numeric",
+          timeZone: "UTC",
+        })
+      : "";
+  }
+  function upload_resume(event) {
+    const file = event.currentTarget.files?.[0];
+    if (!file) return;
+    if (
+      !/\.(pdf|docx)$/i.test(file.name) ||
+      file.size > 5 * 1024 * 1024 ||
+      file.size === 0
+    ) {
+      toast("Choose a PDF or DOCX file, up to 5 MB.");
+      event.currentTarget.value = "";
+      return;
+    }
+    if (resume_url) URL.revokeObjectURL(resume_url);
+    resume_file.set(file);
+    resume_url = URL.createObjectURL(file);
+    toast("Résumé ready for this session. File hosting is not connected yet.");
+  }
   function download_resume() {
-    const text = `${$profile.name}\n${$profile.title}\n${$profile.location}\n\nABOUT\n${$profile.about}\n\nSKILLS\n${$profile.skills.join(", ")}\n\nEXPERIENCE\nProduct Designer, Forma | 2023 - Present\nDesigner, Layers | 2020 - 2023\n\nThis is a sample resume from the Referise design preview.`;
+    if ($resume_file) {
+      const url = URL.createObjectURL($resume_file);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = $resume_file.name;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return;
+    }
+    const text = `${$profile.name}\n${$profile.title}\n${$profile.location}\n\nABOUT\n${$profile.about}\n\nSKILLS\n${$profile.skills.join(", ")}\n\nEXPERIENCE\n${$profile.experiences.map((entry) => `${entry.title}, ${entry.company} | ${entry.start} - ${entry.current ? "Present" : entry.end}`).join("\n")}\n\nThis is a sample resume from the Referise design preview.`;
     const url = URL.createObjectURL(
       new Blob([text], { type: "text/plain;charset=utf-8" }),
     );
@@ -200,7 +306,18 @@
                 ><span></span>Open to opportunities</span
               >{/if}
           </div>
-          <p class="profile_title">{$profile.title}</p>
+          <p class="profile_title">
+            {$profile.title}{#if $profile.pronouns}<small>
+                · {$profile.pronouns}</small
+              >{/if}
+          </p>
+          {#if $profile.social_links.length}<div class="profile_meta">
+              {#each $profile.social_links as link}<a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer">{link.platform} ↗</a
+                >{/each}
+            </div>{/if}
           <div class="profile_meta">
             <span><Icon name="location" size={14} />{$profile.location}</span
             ><span
@@ -217,25 +334,31 @@
             ><Icon name="edit" size={14} />Edit profile</button
           >{/if}
       </div>
+      {#if !public_preview}<a
+          class="text_link"
+          style="margin: 0 28px 20px; font-size: 12px"
+          href="/profile?tab=activity"
+          >62 profile views this week · Sample insights <Icon
+            name="arrow-right"
+            size={13}
+          /></a
+        >{/if}
       <div class="profile_navigation">
         <nav aria-label="Profile sections">
           <a
-            href="/profile"
-            class:active={current_tab === "overview"}
-            on:click|preventDefault={() => goto("/profile", { noScroll: true })}
-            >Overview</a
-          >{#if !public_preview}<a
-              href="/profile?tab=activity"
-              class:active={current_tab === "activity"}
-              on:click|preventDefault={() =>
-                goto("/profile?tab=activity", { noScroll: true })}
-              >Activity & insights <span class="tab_dot"></span></a
-            ><a
+            href={public_preview ? "/profile?public=1" : "/profile"}
+            class:active={current_tab === "overview"}>Overview</a
+          >
+          <a
+            href={public_preview
+              ? "/profile?public=1&tab=activity"
+              : "/profile?tab=activity"}
+            class:active={current_tab === "activity"}
+            >Activity & insights <span class="tab_dot"></span></a
+          >
+          {#if !public_preview}<a
               href="/profile?tab=preferences"
-              class:active={current_tab === "preferences"}
-              on:click|preventDefault={() =>
-                goto("/profile?tab=preferences", { noScroll: true })}
-              >Preferences</a
+              class:active={current_tab === "preferences"}>Preferences</a
             >{/if}
         </nav>
         {#if !public_preview}<button on:click={share}
@@ -245,7 +368,7 @@
     </section>
     <div class="profile_content_grid">
       <div class="profile_main_content">
-        {#if current_tab === "overview" || public_preview}
+        {#if current_tab === "overview"}
           <section class="profile_section">
             <div class="profile_section_heading">
               <h2>A little about me</h2>
@@ -256,6 +379,12 @@
                   ><Icon name="edit" size={16} /></button
                 >{/if}
             </div>
+            {#if $profile.about_updated}<small class="muted"
+                >Updated {new Date($profile.about_updated).toLocaleDateString(
+                  "en",
+                  { timeZone: "UTC" },
+                )}</small
+              >{/if}
             <div class="about_text">
               {#each $profile.about.split("\n\n") as paragraph}<p>
                   {paragraph}
@@ -273,58 +402,83 @@
                 >{/if}
             </div>
             <div class="skill_chips profile_skills">
-              {#each $profile.skills as skill}<span>{skill}</span>{/each}
+              {#each expanded_skills ? $profile.skills : $profile.skills.slice(0, 8) as skill}<span
+                  >{skill}</span
+                >{/each}
             </div>
           </section>
+          {#if $profile.skills.length > 8}<button
+              class="text_link"
+              aria-expanded={expanded_skills}
+              on:click={() => (expanded_skills = !expanded_skills)}
+              >{expanded_skills
+                ? "Show fewer skills"
+                : `Show all ${$profile.skills.length} skills`}</button
+            >{/if}
           <section class="profile_section">
             <div class="profile_section_heading">
               <h2>My journey so far</h2>
-              <span class="section_label">EXPERIENCE</span>
+              <span class="section_label">EXPERIENCE</span
+              >{#if !public_preview}<button
+                  class="icon_button"
+                  aria-label="Edit experience, education, languages and authorization"
+                  on:click={() => edit("background")}
+                  ><Icon name="edit" size={16} /></button
+                >{/if}
             </div>
             <div class="experience_timeline">
-              <article>
-                <Company_logo id="forma" size={43} />
-                <div>
-                  <div class="experience_title">
-                    <h3>Product Designer</h3>
-                    <span>2023 — Present</span>
+              {#each $profile.experiences as experience}<article>
+                  <span class="resume_file_icon"
+                    ><Icon name="building" size={24} /></span
+                  >
+                  <div>
+                    <div class="experience_title">
+                      <h3>{experience.title}</h3>
+                      <span
+                        >{month_label(experience.start)} — {experience.current
+                          ? "Present"
+                          : month_label(experience.end)}</span
+                      >
+                    </div>
+                    <p class="experience_company">
+                      {experience.company} <span>{experience.type}</span><span
+                        >{experience.verification}</span
+                      >
+                    </p>
+                    {#if experience.promoted}<span class="promoted_tag"
+                        >Promoted</span
+                      >{/if}
+                    <p class="experience_description">
+                      {experience.description}
+                    </p>
                   </div>
-                  <p class="experience_company">
-                    Forma <span>Full-time</span><span class="verified_small"
-                      ><Icon name="shield" size={13} />Verified</span
-                    >
-                  </p>
-                  <p class="experience_description">
-                    Designing thoughtful tools for modern teams. Leading product
-                    experiences from discovery to delivery, and helping build a
-                    design system that grows with the product.
-                  </p>
-                  <div class="experience_tags">
-                    <span>Product design</span><span>Design systems</span>
-                  </div>
-                </div>
-              </article>
-              <article>
-                <Company_logo id="layers" size={43} />
-                <div>
-                  <div class="experience_title">
-                    <h3>Designer</h3>
-                    <span>2020 — 2023</span>
-                  </div>
-                  <p class="experience_company">
-                    Layers <span>Full-time</span>
-                  </p>
-                  <p class="experience_description">
-                    Partnered with early-stage teams to bring new ideas to life.
-                    Worked across research, interaction design, and visual
-                    storytelling.
-                  </p>
-                  <div class="experience_tags">
-                    <span>Interaction design</span><span>Prototyping</span>
-                  </div>
-                </div>
-              </article>
+                </article>{/each}
             </div>
+            <dl class="requirement_facts">
+              <div>
+                <dt>Languages</dt>
+                <dd>
+                  {$profile.languages
+                    .map(
+                      (language) =>
+                        `${language.name} · ${language.proficiency}`,
+                    )
+                    .join(", ") || "Not added"}
+                </dd>
+              </div>
+              <div>
+                <dt>Work authorization</dt>
+                <dd>
+                  {#each $profile.authorizations as authorization}<p>
+                      {authorization.country} · {authorization.type}<br /><small
+                        >{authorization.indefinite
+                          ? "No expiry"
+                          : `Valid until ${authorization.until}`}</small
+                      >
+                    </p>{:else}Not added{/each}
+                </dd>
+              </div>
+            </dl>
           </section>
           <section class="profile_section">
             <div class="profile_section_heading">
@@ -379,8 +533,14 @@
             <div class="education_row">
               <span><Icon name="building" size={23} /></span>
               <div>
-                <h3>Bachelor of Design</h3>
-                <p>Communication Design · 2016–2020</p>
+                {#each $profile.education as education}<h3>
+                    {education.degree}
+                  </h3>
+                  <p>
+                    {education.institution}{education.institution
+                      ? " · "
+                      : ""}{education.field} · {education.start}–{education.end}
+                  </p>{:else}<p>Education not added.</p>{/each}
               </div>
             </div>
           </section>
@@ -392,21 +552,19 @@
             </div>
             <div class="profile_stats">
               <div>
-                <Icon name="eye" size={19} /><strong>248</strong><span
+                <Icon name="eye" size={19} /><strong>62</strong><span
                   >Profile views</span
-                ><small>+18% this month</small>
+                ><small>+18% this week</small>
               </div>
               <div>
-                <Icon name="file" size={19} /><strong>36</strong><span
+                <Icon name="file" size={19} /><strong>18</strong><span
                   >Résumé views</span
-                ><small>+8% this month</small>
+                ><small>+8% this week</small>
               </div>
               <div>
-                <Icon name="briefcase" size={19} /><strong
-                  >{$applications.length}</strong
-                ><span>Preview applications</span><small
-                  >Made by you in this browser</small
-                >
+                <Icon name="briefcase" size={19} /><strong>6</strong><span
+                  >Résumé downloads</span
+                ><small>Illustrative weekly total</small>
               </div>
             </div>
             <div class="profile_chart">
@@ -418,70 +576,75 @@
               <svg
                 viewBox="0 0 640 170"
                 role="img"
-                aria-label="Illustrative profile engagement rising over four weeks"
-                ><defs
-                  ><linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1"
-                    ><stop
-                      offset="0%"
-                      stop-color="#a5b6ff"
-                      stop-opacity=".5"
-                    /><stop
-                      offset="100%"
-                      stop-color="#a5b6ff"
-                      stop-opacity="0"
-                    /></linearGradient
-                  ></defs
+                aria-label="Illustrative seven-day engagement: 62 profile views, 18 résumé views and 6 downloads"
                 ><path
-                  d="M30 30h590M30 75h590M30 120h590"
-                  stroke="#e6e9dd"
+                  d="M30 25h576M30 65h576M30 105h576M30 145h576"
+                  stroke="#dce1ef"
                   stroke-dasharray="3 4"
-                /><path
-                  d="M30 119C90 115 75 79 130 92S211 135 270 81 310 76 350 68 416 36 470 53 546 24 620 15V150H30Z"
-                  fill="url(#chart-fill)"
-                /><path
-                  d="M30 119C90 115 75 79 130 92S211 135 270 81 310 76 350 68 416 36 470 53 546 24 620 15"
-                  fill="none"
-                  stroke="#3155ef"
-                  stroke-width="2.5"
-                /><g font-size="9" fill="#959d88" font-family="DM Sans"
-                  ><text x="30" y="169">Week 1</text><text x="220" y="169"
-                    >Week 2</text
-                  ><text x="407" y="169">Week 3</text><text x="580" y="169"
-                    >Week 4</text
-                  ></g
+                />{#each [{ values: weekly_views, color: "#3155ef" }, { values: weekly_resume_views, color: "#55734a" }, { values: weekly_downloads, color: "#ac603a" }] as series}<polyline
+                    points={chart_points(series.values)}
+                    fill="none"
+                    stroke={series.color}
+                    stroke-width="2.5"
+                  />{/each}<g font-size="10" fill="currentColor"
+                  >{#each week_days as day, index}<text
+                      x={22 + index * 96}
+                      y="168">{day}</text
+                    >{/each}</g
                 ></svg
               >
+              <p class="small_text">
+                Blue: profile views · Green: résumé views · Copper: downloads
+              </p>
+              <details>
+                <summary class="small_text">View chart data</summary>
+                <table class="weekly_analytics_table">
+                  <thead
+                    ><tr
+                      ><th>Day</th><th>Profile views</th><th>Résumé views</th
+                      ><th>Downloads</th></tr
+                    ></thead
+                  ><tbody
+                    >{#each week_days as day, index}<tr
+                        ><td>{day}</td><td>{weekly_views[index]}</td><td
+                          >{weekly_resume_views[index]}</td
+                        ><td>{weekly_downloads[index]}</td></tr
+                      >{/each}</tbody
+                  >
+                </table>
+              </details>
             </div>
           </section>
-          <section class="profile_section">
-            <div class="profile_section_heading">
-              <h2>The doors you’ve opened</h2>
-              <span class="section_label"
-                >{$applications.length} PREVIEW APPLICATIONS</span
-              >
-            </div>
-            {#if applied_jobs.length}<div class="application_list">
-                {#each applied_jobs as job}<a href={`/jobs/${job.id}`}
-                    ><Company_logo id={job.company} size={40} />
-                    <div>
-                      <h3>{job.title}</h3>
-                      <p>{get_company(job.company).name} · {job.location}</p>
-                    </div>
-                    <span><Icon name="check" size={12} />Saved in preview</span
-                    ><Icon name="arrow-up-right" size={17} /></a
-                  >{/each}
-              </div>{:else}<div class="activity_empty">
-                <Icon name="briefcase" size={29} />
-                <h3>Your next move is out there.</h3>
-                <p>When you try an application, you’ll see it here.</p>
-                <a href="/jobs" class="text_link"
-                  >Explore opportunities <Icon
-                    name="arrow-right"
-                    size={15}
-                  /></a
+          {#if !public_preview}<section class="profile_section">
+              <div class="profile_section_heading">
+                <h2>The doors you’ve opened</h2>
+                <span class="section_label"
+                  >{$applications.length} PREVIEW APPLICATIONS</span
                 >
-              </div>{/if}
-          </section>
+              </div>
+              {#if applied_jobs.length}<div class="application_list">
+                  {#each applied_jobs as job}<a href={`/jobs/${job.id}`}
+                      ><Company_logo id={job.company} size={40} />
+                      <div>
+                        <h3>{job.title}</h3>
+                        <p>{get_company(job.company).name} · {job.location}</p>
+                      </div>
+                      <span
+                        ><Icon name="check" size={12} />Saved in preview</span
+                      ><Icon name="arrow-up-right" size={17} /></a
+                    >{/each}
+                </div>{:else}<div class="activity_empty">
+                  <Icon name="briefcase" size={29} />
+                  <h3>Your next move is out there.</h3>
+                  <p>When you try an application, you’ll see it here.</p>
+                  <a href="/jobs" class="text_link"
+                    >Explore opportunities <Icon
+                      name="arrow-right"
+                      size={15}
+                    /></a
+                  >
+                </div>{/if}
+            </section>{/if}
         {:else}
           <section class="profile_section">
             <div class="profile_section_heading">
@@ -507,7 +670,11 @@
               </div>
               <div>
                 <dt>Notice period</dt>
-                <dd>{$profile.notice}</dd>
+                <dd>
+                  {$profile.is_serving_notice
+                    ? `Last working day: ${$profile.last_working_date}`
+                    : $profile.notice}
+                </dd>
               </div>
             </dl>
           </section>
@@ -599,8 +766,44 @@
               </div>{/if}
             <div>
               <dt><Icon name="clock" size={14} />READY TO START IN</dt>
-              <dd>{$profile.notice}</dd>
+              <dd>
+                {$profile.is_serving_notice
+                  ? `Last working day: ${$profile.last_working_date}`
+                  : $profile.notice}
+              </dd>
             </div>
+            <div>
+              <dt>EMPLOYMENT TYPES</dt>
+              <dd>{$profile.work_types.join(", ") || "No preference"}</dd>
+            </div>
+            <div>
+              <dt>PREFERRED LOCATIONS</dt>
+              <dd>
+                {$profile.preferred_locations.map(location_name).join(", ") ||
+                  "No preference"}{$profile.open_to_remote
+                  ? " · Worldwide remote"
+                  : ""}
+              </dd>
+            </div>
+            <div>
+              <dt>RELOCATION</dt>
+              <dd>{$profile.relocation || "No preference"}</dd>
+            </div>
+            {#if !public_preview || !$profile.current_salary_private}<div>
+                <dt>CURRENT SALARY</dt>
+                <dd>
+                  {$profile.salary_currency}
+                  {$profile.current_salary.toLocaleString()} / year
+                </dd>
+              </div>{/if}
+            {#if $profile.hourly_rate && (!public_preview || !$profile.hourly_private)}<div
+              >
+                <dt>HOURLY RATE</dt>
+                <dd>
+                  {$profile.salary_currency}
+                  {$profile.hourly_rate.toLocaleString()} / hour
+                </dd>
+              </div>{/if}
           </dl>
         </section>
         {#if !public_preview || !$profile.resume_private}<section
@@ -616,7 +819,9 @@
               >
               <div>
                 <strong>{$profile.name.split(" ")[0]}’s résumé</strong><span
-                  >Sample document · Profile overview</span
+                  >{$resume_file
+                    ? $resume_file.name
+                    : "Sample document · Profile overview"}</span
                 >
               </div>
             </div>
@@ -624,19 +829,38 @@
               class="button button_outline button_full button_small"
               on:click={() => (resume_open = true)}
               >View résumé <Icon name="arrow-up-right" size={14} /></button
-            >{#if !public_preview}<p class="resume_privacy">
+            >{#if !public_preview}<label
+                class="field_label"
+                style="margin-top: 14px"
+                >Upload résumé<input
+                  type="file"
+                  accept=".pdf,.docx"
+                  on:change={upload_resume}
+                /><small
+                  >PDF or DOCX · up to 5 MB. Kept for this session only; a
+                  shareable file URL requires storage integration.</small
+                ></label
+              >
+              <p class="resume_privacy">
                 <Icon name="lock" size={11} />{$profile.resume_private
                   ? "Shared with applications only"
                   : "Visible on your public profile"}
               </p>{/if}
           </section>{/if}
-        {#if !public_preview}<section class="profile_side_card contact_card">
+        {#if !public_preview || !$profile.contact_private}<section
+            class="profile_side_card contact_card"
+          >
             <div class="side_card_heading">
               <h2>The best way to reach me</h2>
               <Icon name="lock" size={14} />
             </div>
             <p><Icon name="mail" size={15} />{$profile.email}</p>
-            <span>Contact details stay private in this preview.</span>
+            <p>{$profile.phone || "Phone not added"}</p>
+            <span
+              >{$profile.contact_private
+                ? "Contact details are private."
+                : "Contact details are visible on the public preview."}</span
+            >
           </section>
           <div class="profile_quiet_note">
             <Companion kind="blue" size={88} />
@@ -664,7 +888,7 @@
               class="field_input"
               required
               minlength="2"
-              maxlength="80"
+              maxlength="100"
               bind:value={draft.name}
             /></label
           ><label class="field_label"
@@ -691,8 +915,12 @@
           ><label class="field_label"
             >Years of experience<input
               class="field_input"
-              bind:value={draft.experience}
-              maxlength="25"
+              bind:value={draft.experience_years}
+              type="number"
+              min="0"
+              max="99"
+              step="1"
+              required
             /></label
           ><label class="field_label"
             >Portfolio display name<input
@@ -701,14 +929,20 @@
               maxlength="100"
               placeholder="yourname.design"
             /></label
-          >{:else if editing === "about"}<label class="field_label full_width"
+          ><Profile_fields
+            bind:draft
+            section="profile"
+          />{:else if editing === "background"}<Profile_fields
+            bind:draft
+            section="background"
+          />{:else if editing === "about"}<label class="field_label full_width"
             >A little about you<textarea
               class="field_input"
               rows="9"
               required
-              maxlength="1500"
+              maxlength="2000"
               bind:value={draft.about}></textarea><span class="muted"
-              >{draft.about.length}/1500 characters</span
+              >{draft.about.length}/2000 characters</span
             ></label
           >{:else if editing === "skills"}<label class="field_label full_width"
             >Your skills<textarea
@@ -716,14 +950,14 @@
               rows="5"
               maxlength="500"
               bind:value={skill_text}></textarea><span class="muted"
-              >Separate each skill with a comma. Up to 16 skills.</span
+              >Separate each skill with a comma.</span
             ></label
           >{:else}<label class="field_label full_width"
             >Roles you’re interested in<input
               class="field_input"
               required
               bind:value={draft.roles}
-              maxlength="140"
+              maxlength="1000"
             /></label
           ><label class="field_label"
             >Work arrangement<select
@@ -734,21 +968,12 @@
               ><option>On-site</option><option>Open to all arrangements</option
               ></select
             ></label
-          ><label class="field_label"
-            >Expected compensation<input
-              class="field_input"
-              required
-              bind:value={draft.expected}
-              maxlength="40"
-              placeholder="₹28–36 LPA"
-            /></label
           ><label class="field_label full_width"
             >Notice period<select class="field_input" bind:value={draft.notice}
-              ><option>Immediately</option><option>15 days</option><option
-                >30 days</option
-              ><option>60 days</option><option>90 days</option></select
+              >{#each notice_periods as notice}<option>{notice}</option
+                >{/each}</select
             ></label
-          >{/if}
+          ><Profile_fields bind:draft section="preferences" />{/if}
       </div>
       <p class="form_helper">
         Changes are saved in this browser for the design preview.
@@ -768,25 +993,44 @@
     title="Your experience, at a glance."
     wide
     on:close={() => (resume_open = false)}
-    ><div class="resume_preview">
-      <h2>{$profile.name}</h2>
-      <p>{$profile.title} · {$profile.location}</p>
-      <hr />
-      <h3>About</h3>
-      <p>{$profile.about}</p>
-      <h3>Experience</h3>
-      <strong>Product Designer · Forma</strong>
-      <p>2023 — Present</p>
-      <strong>Designer · Layers</strong>
-      <p>2020 — 2023</p>
-      <h3>Skills</h3>
-      <p>{$profile.skills.join(" · ")}</p>
-      <h3>Education</h3>
-      <p>Bachelor of Design · Communication Design</p>
-    </div>
+    >{#if $resume_file}<div class="resume_preview">
+        <h2>{$resume_file.name}</h2>
+        <p>Uploaded for this browser session.</p>
+        {#if $resume_file.type === "application/pdf"}<a
+            class="text_link"
+            href={resume_url}
+            target="_blank"
+            rel="noopener noreferrer">Open PDF ↗</a
+          >{:else}<p>
+            Download the DOCX to view it in your document editor.
+          </p>{/if}
+      </div>{:else}<div class="resume_preview">
+        <h2>{$profile.name}</h2>
+        <p>{$profile.title} · {$profile.location}</p>
+        <hr />
+        <h3>About</h3>
+        <p>{$profile.about}</p>
+        <h3>Experience</h3>
+        {#each $profile.experiences as experience}<strong
+            >{experience.title} · {experience.company}</strong
+          >
+          <p>
+            {month_label(experience.start)} — {experience.current
+              ? "Present"
+              : month_label(experience.end)}
+          </p>{/each}
+        <h3>Skills</h3>
+        <p>{$profile.skills.join(" · ")}</p>
+        <h3>Education</h3>
+        {#each $profile.education as education}<p>
+            {education.degree} · {education.field} · {education.institution}
+          </p>{/each}
+      </div>
+    {/if}
     <div class="form_actions">
       <button class="button button_dark" on:click={download_resume}
-        >Download text résumé <Icon name="download" size={16} /></button
+        >{$resume_file ? "Download résumé" : "Download sample text résumé"}
+        <Icon name="download" size={16} /></button
       >
     </div></Modal
   >{/if}

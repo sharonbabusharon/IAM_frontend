@@ -4,6 +4,8 @@
   import Company_logo from "./company_logo.svelte";
   import Icon from "./icon.svelte";
   export let job;
+  import { converted_salary } from "./currency.js";
+  export let currency = "";
   export let compact = false;
   $: company = get_company(job.company);
 </script>
@@ -42,13 +44,15 @@
   <div class="job_card_content">
     {#if !compact}<p class="job_summary">{job.summary}</p>{/if}
     <div class="job_tags">
-      <span>{job.type}</span><span>{job.level}</span>{#if !compact}<span
-          >{job.skills[0]}</span
-        >{/if}
+      <span>{job.type}</span><span
+        >{job.experience_years}+ years · {job.level}</span
+      >{#if !compact}<span>{job.skills[0]}</span>{/if}
     </div>
     <div class="job_card_bottom">
       <div>
-        <strong>{salary(job)}</strong><span class="salary_note"
+        <strong
+          >{currency ? converted_salary(job, currency) : salary(job)}</strong
+        ><span class="salary_note"
           >{job.currency === "INR"
             ? "Annual compensation"
             : "Base compensation"}</span

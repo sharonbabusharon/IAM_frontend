@@ -4,6 +4,7 @@
   import "$lib/portal/portal.css";
   import "$lib/portal/portal_pages.css";
   import "$lib/portal/cobalt_pages.css";
+  import "$lib/portal/requirement_fields.css";
   import Header from "$lib/portal/header.svelte";
   import Footer from "$lib/portal/footer.svelte";
   import Icon from "$lib/portal/icon.svelte";

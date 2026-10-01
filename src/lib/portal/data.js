@@ -91,7 +91,7 @@ const design_requirements = [
   "A strong eye for interaction, typography, layout, and accessible design.",
   "Comfort sharing work early, giving considered feedback, and learning from others.",
 ];
-export const jobs = [
+const job_fixtures = [
   {
     id: "senior-product-designer",
     title: "Senior Product Designer",
@@ -415,7 +415,99 @@ export const jobs = [
     ],
   },
 ];
+const city_ids = {
+  "Bengaluru, India": "in-blr",
+  "Mumbai, India": "in-bom",
+  "Hyderabad, India": "in-hyd",
+  "London, United Kingdom": "gb-lon",
+  "New York, United States": "us-nyc",
+};
+export const jobs = job_fixtures.map((job, index) => ({
+  ...job,
+  designation_id: job.id,
+  location_type: job.location === "Worldwide" ? "world_remote" : "specific",
+  location_ids: city_ids[job.location] ? [city_ids[job.location]] : [],
+  experience_years:
+    { "Entry-level": 0, "Mid-level": 3, Senior: 5, Lead: 8 }[job.level] ?? 0,
+  interview_rounds: [4, 3, 2][index % 3],
+  notice_periods:
+    index % 2
+      ? ["Immediate", "15 days", "30 days"]
+      : ["30 days", "45 days", "60 days", "90 days", "More than 90 days"],
+  relocation: [
+    "Supported locally",
+    "On their own",
+    "Supported internationally",
+    "Not supported",
+  ][index % 4],
+  benefits:
+    index % 2
+      ? ["Flexible hours", "Learning budget"]
+      : ["Health insurance", "Paid leave", "Learning budget"],
+  views: 128 + index * 17,
+  applicants: 24 + index,
+  recruiter_actions: 18 + index,
+  apply_clicks: 32 + index,
+}));
 export const default_profile = {
+  target_roles: ["senior-product-designer"],
+  education: [
+    {
+      institution: "",
+      degree: "Bachelor of Design",
+      field: "Communication Design",
+      start: "2016",
+      end: "2020",
+    },
+  ],
+  experience_years: 6,
+  phone: "",
+  slug: "alex-morgan",
+  gender: "",
+  pronouns: "",
+  social_links: [],
+  current_salary: 2400000,
+  expected_salary: 3200000,
+  salary_currency: "INR",
+  hourly_rate: 0,
+  current_salary_private: true,
+  hourly_private: true,
+  contact_private: true,
+  is_serving_notice: false,
+  last_working_date: "",
+  work_types: ["Full-time", "Contract"],
+  preferred_locations: ["in-blr"],
+  open_to_remote: true,
+  relocation: "",
+  about_updated: "",
+  languages: [{ name: "English", proficiency: "Fluent" }],
+  authorizations: [],
+  experiences: [
+    {
+      company: "Forma",
+      title: "Product Designer",
+      type: "Full-time",
+      start: "2023-03",
+      end: "",
+      current: true,
+      promoted: false,
+      verification: "Unverified",
+      description:
+        "Designing thoughtful tools for modern teams. Leading product experiences from discovery to delivery, and helping build a design system that grows with the product.",
+    },
+    {
+      company: "Layers",
+      title: "Designer",
+      type: "Full-time",
+      start: "2020-06",
+      end: "2023-02",
+      current: false,
+      promoted: false,
+      verification: "Unverified",
+      description:
+        "Partnered with early-stage teams to bring new ideas to life. Worked across research, interaction design, and visual storytelling.",
+    },
+  ],
   name: "Alex Morgan",
   title: "Product Designer",
   location: "Bengaluru, India",
@@ -447,6 +539,7 @@ export function get_company(id) {
   return companies.find((company) => company.id === id) ?? companies[0];
 }
 export function salary(job) {
+  if (job.salary_hidden || job.salary_max == null) return "Competitive";
   if (job.currency === "INR")
     return `₹${job.salary_min / 100000}–${job.salary_max / 100000} LPA`;
   return `${job.currency === "USD" ? "$" : "£"}${job.salary_min / 1000}k–${job.salary_max / 1000}k / year`;

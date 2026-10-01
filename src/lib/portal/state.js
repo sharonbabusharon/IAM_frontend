@@ -1,13 +1,15 @@
 import { writable, get } from "svelte/store";
 import { browser } from "$app/environment";
 import { default_profile, jobs } from "./data";
+import { restore_profile } from "./profile_validation.js";
+import { default_filters } from "./search.js";
+export const search_filters = writable(default_filters());
+export const viewing_currency = writable("INR");
 export const saved_jobs = writable([]);
 export const applications = writable([]);
 export const saved_searches = writable([]);
-export const profile = writable({
-  ...default_profile,
-  skills: [...default_profile.skills],
-});
+export const profile = writable(structuredClone(default_profile));
+export const resume_file = writable(null);
 export const notification = writable("");
 let hydrated = false;
 let timer;
@@ -62,26 +64,7 @@ export function hydrate_preview() {
   saved_searches.subscribe((next) => persist("searches", next));
   const stored = read("profile");
   if (stored && typeof stored === "object" && !Array.isArray(stored)) {
-    // Keep preferences saved before the field names changed.
-    const old_keys = {
-      salary_private: "salaryPrivate",
-      resume_private: "resumePrivate",
-      work_mode: "workMode",
-    };
-    const stored_profile = stored;
-    const next = { ...default_profile, skills: [...default_profile.skills] };
-    for (const key of Object.keys(default_profile)) {
-      const value = stored_profile[key] ?? stored_profile[old_keys[key]];
-      if (
-        key === "skills" &&
-        Array.isArray(value) &&
-        value.every((item) => typeof item === "string")
-      )
-        next.skills = value;
-      else if (typeof value === typeof default_profile[key] && key !== "skills")
-        Object.assign(next, { [key]: value });
-    }
-    profile.set(next);
+    profile.set(restore_profile(stored, default_profile));
   }
   profile.subscribe((next) => persist("profile", next));
 }

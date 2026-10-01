@@ -11,16 +11,29 @@
     profile,
     applications,
     toast,
+    viewing_currency,
+    resume_file,
   } from "$lib/portal/state";
+  import { converted_salary } from "$lib/portal/currency.js";
   export let data;
   $: job = data.job;
   $: company = get_company(job.company);
   $: related = [
     ...jobs.filter(
-      (item) => item.id !== job.id && item.category === job.category,
+      (item) =>
+        item.id !== job.id &&
+        item.category === job.category &&
+        !$applications.includes(item.id) &&
+        item.posted <= 30 &&
+        !item.unlisted,
     ),
     ...jobs.filter(
-      (item) => item.id !== job.id && item.category !== job.category,
+      (item) =>
+        item.id !== job.id &&
+        item.category !== job.category &&
+        !$applications.includes(item.id) &&
+        item.posted <= 30 &&
+        !item.unlisted,
     ),
   ].slice(0, 2);
   let apply_dialog = false;
@@ -28,6 +41,10 @@
   let application_name = "";
   let application_email = "";
   let application_note = "";
+  let application_location = "";
+  let application_notice = "";
+  let application_salary = "";
+  let application_experience = "";
   let consent = false;
   let share_dialog = false;
   let share_url = "";
@@ -39,6 +56,12 @@
     application_name = $profile.name;
     application_email = $profile.email;
     application_note = "";
+    application_location = $profile.location;
+    application_notice = $profile.is_serving_notice
+      ? `Last working day: ${$profile.last_working_date}`
+      : $profile.notice;
+    application_salary = $profile.expected;
+    application_experience = $profile.experience;
     consent = false;
     application_complete = false;
     apply_dialog = true;
@@ -97,17 +120,6 @@
         </div>
         <div class="detail_actions">
           <button
-            class="button button_lime"
-            on:click={start_apply}
-            disabled={$applications.includes(job.id)}
-            >{$applications.includes(job.id)
-              ? "Applied in preview"
-              : "Apply for this role"}<Icon
-              name="arrow-up-right"
-              size={17}
-            /></button
-          >
-          <button
             class="button button_outline button_small"
             class:saved={$saved_jobs.includes(job.id)}
             on:click={() => toggle_saved(job.id)}
@@ -143,7 +155,9 @@
       <div class="job_facts_strip">
         <div>
           <Icon name="money" size={20} /><span
-            >COMPENSATION<strong>{salary(job)}</strong></span
+            >COMPENSATION<strong
+              >{converted_salary(job, $viewing_currency)}</strong
+            ></span
           >
         </div>
         <div>
@@ -158,7 +172,9 @@
         </div>
         <div>
           <Icon name="chart" size={20} /><span
-            >EXPERIENCE LEVEL<strong>{job.level}</strong></span
+            >EXPERIENCE REQUIRED<strong
+              >{job.experience_years}+ years · {job.level}</strong
+            ></span
           >
         </div>
       </div>
@@ -183,6 +199,46 @@
           work, the support of people who care about their craft, and a voice in what
           we build next.
         </p>
+        <dl class="requirement_facts">
+          <div>
+            <dt>Notice periods accepted</dt>
+            <dd>{job.notice_periods.join(" · ")}</dd>
+          </div>
+          <div>
+            <dt>Relocation support</dt>
+            <dd>{job.relocation}</dd>
+          </div>
+          <div>
+            <dt>Interview rounds</dt>
+            <dd>{job.interview_rounds} rounds</dd>
+          </div>
+          <div>
+            <dt>Department</dt>
+            <dd>{job.category}</dd>
+          </div>
+          <div>
+            <dt>Application method</dt>
+            <dd>{job.application}</dd>
+          </div>
+          <div>
+            <dt>Location eligibility</dt>
+            <dd>
+              {job.location_type === "world_remote"
+                ? "Worldwide remote"
+                : job.location}
+            </dd>
+          </div>
+        </dl>
+        <label class="field_label"
+          >View salary in<select
+            class="field_input"
+            style="max-width: 150px"
+            bind:value={$viewing_currency}
+            ><option>INR</option><option>USD</option><option>GBP</option><option
+              >EUR</option
+            ></select
+          ><small>Illustrative exchange rates for this preview.</small></label
+        >
         <h3>What you’ll do</h3>
         <ul class="description_list">
           {#each job.responsibilities as responsibility}<li>
@@ -235,7 +291,7 @@
           Here’s the planned process for this sample role.
         </p>
         <ol class="hiring_steps">
-          {#each [{ title: "A first conversation", time: "30 minutes", text: "Meet the team, talk about your experience, and ask your first questions." }, { title: "A closer look at your work", time: "60 minutes", text: "Walk us through a project and the thinking behind your decisions." }, { title: "Meet your future collaborators", time: "45 minutes", text: "Get to know the people you’d work with and how the team makes decisions." }, { title: "A clear next step", time: "The final conversation", text: "Discuss the opportunity, compensation, and what joining the team could look like." }] as step, i}<li
+          {#each [{ title: "A first conversation", time: "30 minutes", text: "Meet the team, talk about your experience, and ask your first questions." }, { title: "A closer look at your work", time: "60 minutes", text: "Walk us through a project and the thinking behind your decisions." }, { title: "Meet your future collaborators", time: "45 minutes", text: "Get to know the people you’d work with and how the team makes decisions." }, { title: "A clear next step", time: "The final conversation", text: "Discuss the opportunity, compensation, and what joining the team could look like." }].slice(0, job.interview_rounds) as step, i}<li
             >
               <span class="step_number">0{i + 1}</span>
               <div>
@@ -317,10 +373,26 @@
         </div>
         <p>A little visibility into the hiring journey.</p>
         <div class="hiring_metrics">
-          <div><strong>128</strong><span>Role views</span></div>
-          <div><strong>24</strong><span>Applications</span></div>
-          <div><strong>18</strong><span>Recruiter actions</span></div>
+          <div><strong>{job.views}</strong><span>Role views</span></div>
+          {#if job.application === "Easy apply"}<div>
+              <strong>{job.applicants}</strong><span>Applications</span>
+            </div>
+            <div
+              title="Application views, rejections, holds, résumé views and shortlists"
+            >
+              <strong>{job.recruiter_actions}</strong><span
+                >Recruiter actions</span
+              >
+            </div>{:else}<div>
+              <strong>{job.apply_clicks}</strong><span>Apply clicks</span>
+            </div>{/if}
         </div>
+        {#if job.tier === "Premium" && job.application === "Easy apply"}<p
+            class="small_text"
+          >
+            Applications above 70% match: unavailable until AI matching is
+            connected.
+          </p>{/if}
         <div class="activity_progress"><span></span></div>
         <div class="activity_caption">
           <span>Illustrative hiring activity</span><Icon
@@ -365,7 +437,16 @@
       : "Make your introduction."}
     on:close={() => (apply_dialog = false)}
   >
-    {#if application_complete}<div class="application_success">
+    {#if job.application !== "Easy apply"}<p class="modal_description">
+        This role uses {job.application === "Email"
+          ? "email applications"
+          : "an external application site"}. The employer’s destination is not
+        connected in this preview. No application will be recorded.
+      </p>
+      <button
+        class="button button_outline"
+        on:click={() => (apply_dialog = false)}>Back to the role</button
+      >{:else if application_complete}<div class="application_success">
         <span><Icon name="check" size={32} /></span>
         <h3>Application saved in this preview.</h3>
         <p>
@@ -408,7 +489,45 @@
               bind:value={application_email}
               autocomplete="email"
             /></label
-          ><label class="field_label full_width"
+          ><label class="field_label"
+            >Current location<input
+              class="field_input"
+              required
+              bind:value={application_location}
+            /></label
+          >
+          <label class="field_label"
+            >Notice / availability<input
+              class="field_input"
+              required
+              bind:value={application_notice}
+            /></label
+          >
+          <label class="field_label"
+            >Expected compensation<input
+              class="field_input"
+              required
+              bind:value={application_salary}
+            /></label
+          >
+          <label class="field_label"
+            >Experience<input
+              class="field_input"
+              required
+              bind:value={application_experience}
+            /></label
+          >
+          <label class="field_label full_width"
+            >Résumé<input
+              class="field_input"
+              readonly
+              value={$resume_file ? $resume_file.name : "Sample profile résumé"}
+            /><small
+              >Review or upload your résumé on your profile. No file is sent in
+              this preview.</small
+            ></label
+          >
+          <label class="field_label full_width"
             >A short introduction <span class="muted">Optional</span><textarea
               class="field_input"
               maxlength="1200"

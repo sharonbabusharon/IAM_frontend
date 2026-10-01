@@ -1,0 +1,242 @@
+.filter_disclosure {
+  border-bottom: 1px solid var(--line, #dce1ef);
+  padding: 15px 0;
+}
+.filter_disclosure summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink, #17264a);
+}
+.filter_disclosure summary span {
+  float: right;
+  color: #3155ef;
+}
+.filter_disclosure[open] summary {
+  margin-bottom: 14px;
+}
+.filter_disclosure .field_label {
+  margin: 12px 0;
+  font-size: 12px;
+}
+.filter_panel small,
+.filter_hint {
+  display: block;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--muted, #657088);
+  margin: 10px 0;
+}
+.filter_option_list {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  max-height: 235px;
+  overflow: auto;
+}
+.filter_panel .filter_checkbox {
+  display: flex;
+  align-items: start;
+  gap: 9px;
+  margin: 10px 0;
+  line-height: 1.5;
+  font-size: 12px;
+}
+.filter_panel input[type="checkbox"],
+.profile_field_check input {
+  accent-color: #3155ef;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.filter_pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.filter_pair input {
+  width: 100%;
+  min-width: 0;
+}
+.filter_submit {
+  padding: 18px 0;
+  position: sticky;
+  bottom: 0;
+  background: var(--surface, #fff);
+  z-index: 1;
+}
+.filter_submit p {
+  font-size: 11px;
+  text-align: center;
+  margin: 10px 0 0;
+  color: var(--muted, #657088);
+}
+.pending_filters {
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #2544b1;
+  font-size: 12px;
+}
+.filter_error {
+  color: #b83232;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.location_picker ul {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+}
+.location_picker ul ul {
+  padding-left: 16px;
+}
+.location_row,
+.location_row label {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  font-size: 12px;
+}
+.location_row {
+  min-height: 32px;
+}
+.location_row button,
+.location_leaf {
+  width: 22px;
+  flex-shrink: 0;
+}
+.location_row button {
+  border: 1px solid #dce1ef;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+}
+.location_actions {
+  display: flex;
+  gap: 14px;
+}
+.location_actions button {
+  font-size: 11px;
+  color: #3155ef;
+  background: none;
+  border: 0;
+  padding: 4px 0;
+  cursor: pointer;
+}
+.advanced_search_link {
+  background: none;
+  border: 0;
+  color: #3155ef;
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.search_filters {
+  flex-wrap: wrap;
+}
+.requirement_facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  padding: 22px 0;
+  border-bottom: 1px solid #dce1ef;
+  margin-bottom: 25px;
+}
+.requirement_facts dt {
+  font-size: 11px;
+  color: var(--muted, #657088);
+  margin-bottom: 6px;
+}
+.requirement_facts dd {
+  font-size: 13px;
+  margin: 0;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.profile_extra_fields {
+  grid-column: 1 / -1;
+}
+.profile_extra_fields h3 {
+  font-size: 15px;
+  margin: 22px 0 14px;
+}
+.profile_field_check {
+  display: flex;
+  gap: 8px;
+  align-items: start;
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 8px 0;
+}
+.profile_choice_grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+}
+.profile_extra_fields fieldset {
+  padding: 15px;
+  border: 1px solid #dce1ef;
+  border-radius: 12px;
+  margin: 14px 0;
+}
+.profile_extra_fields legend {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 6px;
+}
+.profile_extra_fields .form_grid {
+  gap: 15px;
+}
+.profile_repeat_row {
+  border-bottom: 1px solid #dce1ef;
+  padding: 12px 0;
+}
+.profile_repeat_row .button {
+  margin-top: 10px;
+}
+.profile_data_list {
+  display: grid;
+  gap: 12px;
+}
+.profile_data_list p {
+  margin: 4px 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.profile_data_list small {
+  color: var(--muted, #657088);
+}
+.promoted_tag {
+  display: inline-block;
+  color: #ba3636;
+  background: #fff0ee;
+  padding: 3px 7px;
+  border-radius: 4px;
+  font-size: 10px;
+}
+@media (max-width: 600px) {
+  .requirement_facts {
+    gap: 15px;
+  }
+  .profile_choice_grid {
+    grid-template-columns: 1fr;
+  }
+}
+.weekly_analytics_table {
+  width: 100%;
+  font-size: 11px;
+  text-align: left;
+  border-collapse: collapse;
+}
+.weekly_analytics_table th,
+.weekly_analytics_table td {
+  padding: 8px 5px;
+  border-bottom: 1px solid #dce1ef;
+}
+.job_card_bottom strong,
+.job_facts_strip strong {
+  overflow-wrap: anywhere;
+}

@@ -5,6 +5,14 @@
   import Logo from "$lib/portal/logo.svelte";
   import Companion from "$lib/portal/companion.svelte";
   import Company_logo from "$lib/portal/company_logo.svelte";
+  import { get } from "svelte/store";
+  import Filter_panel from "$lib/portal/filter_panel.svelte";
+  import {
+    default_filters,
+    filters_from_params,
+    filters_to_params,
+    filter_error,
+  } from "$lib/portal/search.js";
   import Modal from "$lib/portal/modal.svelte";
   import {
     jobs,
@@ -12,7 +20,14 @@
     get_company,
     salary as format_salary,
   } from "$lib/portal/data";
-  import { saved_jobs, toggle_saved } from "$lib/portal/state";
+  import {
+    saved_jobs,
+    toggle_saved,
+    applications,
+    search_filters,
+    viewing_currency,
+    toast,
+  } from "$lib/portal/state";
   import {
     platform_metrics,
     landing_faqs,
@@ -20,6 +35,9 @@
   } from "$lib/portal/landing_content";
   import "$lib/portal/landing.css";
 
+  let advanced = default_filters();
+  let advanced_open = false;
+  let sector = "";
   let query = "";
   let location = "";
   let country = "";
@@ -40,7 +58,10 @@
   $: featured_jobs = jobs
     .filter(
       (job) =>
-        active_category === "All roles" || job.category === active_category,
+        (active_category === "All roles" || job.category === active_category) &&
+        !$applications.includes(job.id) &&
+        !job.unlisted &&
+        job.posted <= 30,
     )
     .slice(0, 3);
   $: visible_companies = companies.filter(
@@ -58,6 +79,13 @@
       : visible_companies.slice(0, 3);
 
   on_mount(() => {
+    advanced = structuredClone(get(search_filters));
+    query = advanced.query;
+    location = advanced.location;
+    work_mode = advanced.modes.length === 1 ? advanced.modes[0] : "";
+    experience = advanced.levels.length === 1 ? advanced.levels[0] : "";
+    industry = advanced.categories.length === 1 ? advanced.categories[0] : "";
+    sector = advanced.industries.length === 1 ? advanced.industries[0] : "";
     const reduced_motion = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     );
@@ -133,9 +161,49 @@
     }
     if (experience) params.set("level", experience);
     if (industry) params.set("category", industry);
-    goto(`/jobs${params.size ? `?${params}` : ""}`);
+    const quick = filters_from_params(params);
+    advanced = {
+      ...advanced,
+      query: quick.query,
+      location: quick.location,
+      modes: work_mode || remote_search ? quick.modes : advanced.modes,
+      levels: experience ? quick.levels : advanced.levels,
+      categories: industry ? quick.categories : advanced.categories,
+      industries: sector ? [sector] : advanced.industries,
+    };
+    run_search();
   }
 
+  function run_search() {
+    const error = filter_error(advanced);
+    if (error) {
+      toast(error);
+      return;
+    }
+    advanced = filters_from_params(filters_to_params(advanced));
+    search_filters.set(structuredClone(advanced));
+    viewing_currency.set(advanced.currency);
+    const params = filters_to_params(advanced);
+    goto(`/jobs${params.size ? `?${params}` : ""}`);
+  }
+  function open_advanced() {
+    const search_location = location.trim();
+    const remote_search = search_location.toLowerCase() === "remote";
+    advanced = {
+      ...advanced,
+      query,
+      location: remote_search
+        ? country
+        : search_location && country && !search_location.toLowerCase().includes(country.toLowerCase())
+          ? `${search_location}, ${country}`
+          : search_location || country,
+      modes: remote_search ? ["Remote"] : work_mode ? [work_mode] : advanced.modes,
+      levels: experience ? [experience] : advanced.levels,
+      categories: industry ? [industry] : advanced.categories,
+      industries: sector ? [sector] : advanced.industries,
+    };
+    advanced_open = true;
+  }
   function open_topic(value) {
     topic = value;
     mobile_menu = false;
@@ -379,6 +447,8 @@
                 ><span class="sr_only">Work mode</span><select
                   aria-label="Work mode"
                   bind:value={work_mode}
+                  on:change={() =>
+                    (advanced.modes = work_mode ? [work_mode] : [])}
                   ><option value="">Work mode</option><option>Remote</option
                   ><option>Hybrid</option><option>On-site</option></select
                 ></label
@@ -386,6 +456,8 @@
                 ><span class="sr_only">Experience</span><select
                   aria-label="Experience"
                   bind:value={experience}
+                  on:change={() =>
+                    (advanced.levels = experience ? [experience] : [])}
                   ><option value="">Experience</option><option
                     >Entry-level</option
                   ><option>Mid-level</option><option>Senior</option><option
@@ -393,14 +465,32 @@
                   ></select
                 ></label
               ><label
-                ><span class="sr_only">Field of work</span><select
-                  aria-label="Field of work"
+                ><span class="sr_only">Department</span><select
+                  aria-label="Department"
                   bind:value={industry}
-                  ><option value="">Field of work</option><option>Design</option
+                  on:change={() =>
+                    (advanced.categories = industry ? [industry] : [])}
+                  ><option value="">Department</option><option>Design</option
                   ><option>Engineering</option><option>Product</option><option
                     >Marketing</option
                   ><option>Data</option><option>Operations</option></select
                 ></label
+              ><label
+                ><span class="sr_only">Industry</span><select
+                  aria-label="Industry"
+                  bind:value={sector}
+                  on:change={() =>
+                    (advanced.industries = sector ? [sector] : [])}
+                  ><option value="">Industry</option
+                  >{#each companies as company}<option value={company.sector}
+                      >{company.sector}</option
+                    >{/each}</select
+                ></label
+              ><button
+                type="button"
+                class="advanced_search_link"
+                on:click={open_advanced}
+                >All filters <Icon name="filter" size={14} /></button
               >{/if}<span class="search_preview_note"
               >Explore the preview <span class="status_dot"></span></span
             >
@@ -960,4 +1050,30 @@
         >{preview_topics[topic].action}<Icon name="arrow-right" size={17} /></a
       >
     </div></Modal
+  >{/if}
+
+{#if advanced_open}<Modal
+    title="Find work that fits"
+    on:close={() => (advanced_open = false)}
+    ><form on:submit|preventDefault={run_search}>
+      <Filter_panel bind:filters={advanced} scope="landing" />
+      <div class="form_actions">
+        <button
+          type="button"
+          class="button button_outline"
+          on:click={() => {
+            advanced = default_filters();
+            query = "";
+            location = "";
+            country = "";
+            work_mode = "";
+            experience = "";
+            industry = "";
+            sector = "";
+          }}>Reset all</button
+        ><button type="submit" class="button button_dark"
+          >Search opportunities</button
+        >
+      </div>
+    </form></Modal
   >{/if}
