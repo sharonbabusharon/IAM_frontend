@@ -39,6 +39,14 @@ export function exchange_code_for_token(code) {
     });
 }
 
+export function password_sign_in(credentials) {
+    return iam_request('/signin', { method: 'POST', headers: json_headers(), body: JSON.stringify(credentials), signal: AbortSignal.timeout(12000) });
+}
+
+export function password_sign_up(credentials) {
+    return iam_request('/signup', { method: 'POST', headers: json_headers(), body: JSON.stringify(credentials), signal: AbortSignal.timeout(12000) });
+}
+
 export function admin_list_users(token, search_params) {
     const query = search_params && search_params.toString() ? '?' + search_params.toString() : '';
     return iam_request('/admin/users' + query, { headers: bearer_headers(token) });

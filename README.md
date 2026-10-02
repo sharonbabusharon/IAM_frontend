@@ -74,3 +74,10 @@ SSO return URLs. Variables prefixed with `PUBLIC_` are visible in the browser;
 use them only for public configuration.
 
 Reference: [SvelteKit's Vercel adapter](https://svelte.dev/docs/kit/adapter-vercel).
+
+## Authentication pages
+
+Sign-in and registration now match the portal design. Review `/login`, `/signup`,
+`/auth/check-email`, and `/auth/help`. See [the auth handoff](docs/auth-handoff.md)
+for API behaviour, configuration, verification and the remaining recovery endpoints.
+Run `npm run test:auth` for the isolated authentication tests.

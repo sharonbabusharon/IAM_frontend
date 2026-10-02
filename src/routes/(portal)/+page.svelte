@@ -194,10 +194,16 @@
       query,
       location: remote_search
         ? country
-        : search_location && country && !search_location.toLowerCase().includes(country.toLowerCase())
+        : search_location &&
+            country &&
+            !search_location.toLowerCase().includes(country.toLowerCase())
           ? `${search_location}, ${country}`
           : search_location || country,
-      modes: remote_search ? ["Remote"] : work_mode ? [work_mode] : advanced.modes,
+      modes: remote_search
+        ? ["Remote"]
+        : work_mode
+          ? [work_mode]
+          : advanced.modes,
       levels: experience ? [experience] : advanced.levels,
       categories: industry ? [industry] : advanced.categories,
       industries: sector ? [sector] : advanced.industries,
@@ -296,8 +302,8 @@
         ><button on:click={() => open_topic("employer")}
           >Create a company</button
         ><button on:click={() => open_topic("install")}>Install app</button><a
-          href="/login">Sign in / Register</a
-        >
+          href="/login">Sign in</a
+        ><a href="/signup">Create an account</a>
       </nav>{/if}
   </header>
 

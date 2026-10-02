@@ -22,7 +22,8 @@
           ><a href="/jobs?saved=1">Saved opportunities</a>
         </div>
         <div class="footer_links">
-          <span>MAKE YOURSELF KNOWN</span><a href="/profile">Your profile</a><a
+          <span>MAKE YOURSELF KNOWN</span><a href="/signup">Create an account</a
+          ><a href="/login">Sign in</a><a href="/profile">Your profile</a><a
             href="/#companies">Explore companies</a
           ><a href="/#our-approach">The Referise approach</a>
         </div>

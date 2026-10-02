@@ -6,9 +6,9 @@
 </script>
 
 <svelte:head
-  ><title>Sign in — Referise</title><meta
+  ><title>Create an account — Referise</title><meta
     name="description"
-    content="Sign in to Referise and pick up your next career chapter."
+    content="Create your Referise account and find your next opportunity."
   /></svelte:head
 >
-<Auth_shell><Auth_form {data} {form} /></Auth_shell>
+<Auth_shell signup><Auth_form signup {data} {form} /></Auth_shell>

@@ -4,6 +4,17 @@
     "checkJs": false
   },
   "include": [
+    "src/lib/server/password_auth.js",
+    "src/routes/login/**/*.js",
+    "src/routes/signup/**/*.js",
+    "src/routes/auth/**/*.js",
+    "src/routes/register/**/*.js",
+    "src/routes/signin/**/*.js",
+    "src/lib/auth/**/*.js",
+    "src/lib/auth/**/*.svelte",
+    "src/routes/login/**/*.svelte",
+    "src/routes/signup/**/*.svelte",
+    "src/routes/auth/**/*.svelte",
     "src/lib/portal/**/*.js",
     "src/lib/portal/**/*.svelte",
     "src/routes/(portal)/**/*.js",
