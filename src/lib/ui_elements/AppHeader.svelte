@@ -1,7 +1,6 @@
 <script>
     import { goto } from '$app/navigation';
     import BrandMark from './BrandMark.svelte';
-    import { clear_session_user } from '$lib/session.js';
 
     export let active = ''; // account, admin
     export let user = null;
@@ -15,7 +14,6 @@
             await fetch('/auth/logout', { method: 'POST' });
         } catch (error) {
         }
-        clear_session_user();
         goto('/login', { replaceState: true });
     }
 

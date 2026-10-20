@@ -3,18 +3,15 @@
   import { onMount as on_mount } from "svelte";
   import { sso_providers } from "$lib/providers.js";
   import { build_sso_login_url } from "$lib/config.js";
-  import { clear_session_user } from "$lib/session.js";
   import { friendly_auth_error } from "./validation.js";
   export let signup = false;
-  export let form = null;
   export let data;
   let redirecting_provider = "";
   let local_message = "";
   $: error_code = $page.url.searchParams.get("error");
+  $: next = $page.url.searchParams.get("next");
   $: message =
-    local_message ||
-    form?.message ||
-    (error_code ? friendly_auth_error(error_code) : "");
+    local_message || (error_code ? friendly_auth_error(error_code) : "");
   on_mount(() => {
     const reset = () => (redirecting_provider = "");
     window.addEventListener("pageshow", reset);
@@ -28,11 +25,12 @@
     }
     local_message = "";
     redirecting_provider = provider.slug;
-    clear_session_user();
     window.location.assign(
       build_sso_login_url(
         provider.slug,
-        window.location.origin + "/auth/callback",
+        window.location.origin +
+          "/auth/callback" +
+          (next ? "?next=" + encodeURIComponent(next) : ""),
       ),
     );
   }

@@ -1,5 +1,6 @@
 <script>
   import { page } from "$app/stores";
+  import { goto, invalidateAll as invalidate_all } from "$app/navigation";
   import { onMount as on_mount } from "svelte";
   import Logo from "./logo.svelte";
   import Icon from "./icon.svelte";
@@ -10,8 +11,18 @@
     applications_remaining,
     membership_open,
   } from "./membership_state.js";
-  let signed_in = false;
+  export let user = null;
   let menu_open = false;
+  $: sign_in_href = "/login?next=" + encodeURIComponent($page.url.pathname + $page.url.search);
+  async function sign_out() {
+    try {
+      await fetch("/auth/logout", { method: "POST" });
+    } catch (error) {
+      // the session cookie is cleared server-side either way
+    }
+    await invalidate_all();
+    goto("/");
+  }
   let nav_root;
   const groups = [
     {
@@ -56,11 +67,6 @@
       .forEach((el) => el.removeAttribute("open"));
   }
   on_mount(() => {
-    const controller = new AbortController();
-    fetch("/auth/session", { cache: "no-store", signal: controller.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => (signed_in = !!data?.authenticated))
-      .catch(() => {});
     const dismiss = (event) => {
       nav_root.querySelectorAll("details[open]").forEach((el) => {
         if (
@@ -77,7 +83,6 @@
     document.addEventListener("click", dismiss);
     document.addEventListener("keydown", dismiss);
     return () => {
-      controller.abort();
       document.removeEventListener("click", dismiss);
       document.removeEventListener("keydown", dismiss);
     };
@@ -105,7 +110,7 @@
     </nav>
     <div class="unified_actions">
       <Install_button />
-      {#if signed_in || $preview_account.enabled}<button
+      {#if user || $preview_account.enabled}<button
           class="header_balance"
           on:click={() => membership_open.set(true)}
           aria-label="Preview application allowance and credits"
@@ -114,7 +119,11 @@
               ? "Unlimited"
               : `${$applications_remaining} left today`}</strong
           ><small>{$preview_account.credits} credits · Preview</small></button
-        >{:else}<a class="unified_signin" href="/login">Sign in</a>{/if}<a
+        >{/if}{#if user}<a class="unified_signin" href="/profile" title={user.email}
+          >{user.name || user.email}</a
+        ><button class="unified_signin" type="button" on:click={sign_out}
+          >Sign out</button
+        >{:else if !$preview_account.enabled}<a class="unified_signin" href={sign_in_href}>Sign in</a>{/if}<a
         class="unified_post"
         href="/recruiter/post-job">Post a job <Icon name="plus" size={16} /></a
       >
@@ -143,7 +152,12 @@
           </div>
         </details>{/each}
       <div class="mobile_account">
-        <a href="/login">Sign in</a><a href="/signup">Create an account</a>
+        {#if user}<a href="/profile">My profile</a><button
+            type="button"
+            on:click={sign_out}>Sign out</button
+          >{:else}<a href={sign_in_href}>Sign in</a><a href="/signup"
+            >Create an account</a
+          >{/if}
       </div>
     </nav>{/if}
 </header>

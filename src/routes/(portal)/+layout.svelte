@@ -18,6 +18,7 @@
   import Icon from "$lib/portal/icon.svelte";
   import { hydrate_preview, notification } from "$lib/portal/state";
   import { hydrate_workspace } from "$lib/portal/workspace_state.js";
+  export let data;
   let offline = false;
   hydrate_preview();
   hydrate_workspace();
@@ -47,7 +48,7 @@
   /></svelte:head
 >
 <div class="portal" class:cobalt_pages={$page.url.pathname !== "/"}>
-  <Header />
+  <Header user={data.user} />
   {#if $membership_open}<Membership_panel />{/if}
   {#if offline}<div class="offline_notice" role="status">
       <Icon name="wifi" size={16} />You’re offline. Your saved preview is still

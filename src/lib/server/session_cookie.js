@@ -1,40 +1,24 @@
-const cookie_name = 'iam_token';
+import { dev } from '$app/environment';
+import { iam_access_token } from './backend_api.js';
 
-export function decode_jwt_claims(token) {
-    try {
-        const parts = token.split('.');
-        if (parts.length < 2) return null;
-        let payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-        payload = payload + '='.repeat((4 - (payload.length % 4)) % 4);
-        const json = Buffer.from(payload, 'base64').toString('utf-8');
-        return JSON.parse(json);
-    } catch (error) {
-        return null;
-    }
-}
+// Holds only the opaque findJobs session ID; IAM tokens never reach the browser.
+// Outside dev the __Host- prefix makes the browser insist on Secure, Path=/
+// and no Domain, so a sibling subdomain can't plant or overwrite the cookie.
+// Plain http://localhost dev keeps the unprefixed name. (The SvelteKit ->
+// backend hop always uses the backend's own `jp_session`; see backend_api.js.)
+const cookie_name = dev ? 'jp_session' : '__Host-jp_session';
 
-export function set_session_cookie(cookies, token, expires_at) {
-    let max_age = 600;
-    if (expires_at) {
-        const seconds = Math.floor((new Date(expires_at).getTime() - Date.now()) / 1000);
-        if (seconds > 0) max_age = seconds;
-    } else {
-        const claims = decode_jwt_claims(token);
-        if (claims && claims.exp) {
-            const seconds = claims.exp - Math.floor(Date.now() / 1000);
-            if (seconds > 0) max_age = seconds;
-        }
-    }
-    cookies.set(cookie_name, token, {
+export function set_session_cookie(cookies, session_id) {
+    cookies.set(cookie_name, session_id, {
         path: '/',
         httpOnly: true,
         sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: max_age
+        secure: !dev,
+        maxAge: 30 * 24 * 3600
     });
 }
 
-export function read_token(cookies) {
+export function read_session_id(cookies) {
     return cookies.get(cookie_name) || null;
 }
 
@@ -42,15 +26,7 @@ export function clear_session_cookie(cookies) {
     cookies.delete(cookie_name, { path: '/' });
 }
 
-export function build_session_user(token, fallback) {
-    const claims = decode_jwt_claims(token) || {};
-    const source = fallback || {};
-    return {
-        ecosystem_id: source.ecosystem_id || claims.sub || '',
-        email: claims.email || '',
-        name: claims.name || '',
-        status: claims.status || 'active',
-        expires_at:
-            source.expires_at || (claims.exp ? new Date(claims.exp * 1000).toISOString() : null)
-    };
+// IAM access token for the admin proxy routes, or null when signed out.
+export function read_token(cookies) {
+    return iam_access_token(read_session_id(cookies));
 }

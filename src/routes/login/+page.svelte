@@ -2,7 +2,6 @@
   import Auth_shell from "$lib/auth/auth_shell.svelte";
   import Auth_form from "$lib/auth/auth_form.svelte";
   export let data;
-  export let form;
 </script>
 
 <svelte:head
@@ -11,4 +10,4 @@
     content="Sign in to Referise and pick up your next career chapter."
   /></svelte:head
 >
-<Auth_shell><Auth_form {data} {form} /></Auth_shell>
+<Auth_shell><Auth_form {data} /></Auth_shell>

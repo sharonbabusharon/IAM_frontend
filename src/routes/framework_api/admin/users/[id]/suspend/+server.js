@@ -3,7 +3,7 @@ import { read_token } from '$lib/server/session_cookie.js';
 import { admin_suspend_user } from '$lib/server/iam_api.js';
 
 export async function POST({ params, cookies }) {
-    const token = read_token(cookies);
+    const token = await read_token(cookies);
     if (!token) {
         return json({ error: 'missing_bearer_token' }, { status: 401 });
     }

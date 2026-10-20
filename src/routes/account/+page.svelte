@@ -75,7 +75,7 @@
                         <span class="session_value">{format_date_time(user.expires_at)}</span>
                     </div>
                     <p class="session_note">
-                        Sessions last ten minutes and renew each time you sign in.
+                        Your session renews automatically until this date.
                     </p>
                 </section>
             </div>

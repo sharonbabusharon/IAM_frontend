@@ -1,7 +1,7 @@
 import { env } from '$env/dynamic/public';
 
 const base_url = (env.PUBLIC_IAM_BASE_URL || 'http://localhost:8080').replace(/\/+$/, '');
-const app_id = env.PUBLIC_IAM_APP_ID || 'iam';
+const app_id = env.PUBLIC_IAM_APP_ID || 'jportal';
 
 export const iam_app_id = app_id;
 
@@ -23,28 +23,8 @@ async function iam_request(path, options = {}) {
     }
 }
 
-function json_headers(extra) {
-    return Object.assign({ 'Content-Type': 'application/json' }, extra || {});
-}
-
 function bearer_headers(token, extra) {
     return Object.assign({ Authorization: 'Bearer ' + token }, extra || {});
-}
-
-export function exchange_code_for_token(code) {
-    return iam_request('/token', {
-        method: 'POST',
-        headers: json_headers(),
-        body: JSON.stringify({ code: code, app_id: app_id })
-    });
-}
-
-export function password_sign_in(credentials) {
-    return iam_request('/signin', { method: 'POST', headers: json_headers(), body: JSON.stringify(credentials), signal: AbortSignal.timeout(12000) });
-}
-
-export function password_sign_up(credentials) {
-    return iam_request('/signup', { method: 'POST', headers: json_headers(), body: JSON.stringify(credentials), signal: AbortSignal.timeout(12000) });
 }
 
 export function admin_list_users(token, search_params) {
