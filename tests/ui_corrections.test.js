@@ -45,8 +45,8 @@ test("skill match is case insensitive and match filtering uses the displayed thr
 test("worldwide remote jobs satisfy both city and free-text geography without relaxing other criteria", () => {
   const worldwide=jobs.find(j=>j.location_type === "world_remote" && !j.unlisted);
   assert.ok(worldwide);
-  assert.equal(filter_jobs([worldwide],{...default_filters(),locations:["in-blr"],location:"Bengaluru"}).length,1);
-  assert.equal(filter_jobs([worldwide],{...default_filters(),locations:["in-blr"],modes:["On-site"]}).length,0);
+  assert.equal(filter_jobs([worldwide],{...default_filters(),locations:["1277333"],location:"Bengaluru"}).length,1);
+  assert.equal(filter_jobs([worldwide],{...default_filters(),locations:["1277333"],modes:["On-site"]}).length,0);
 });
 test("job posting accepts worldwide remote only with a remote workplace", () => {
   const form={...new_job_form(),title:"Designer",skills:["Figma"],worldwide:true,modes:["Remote"],types:["Full-time"],salary_max:100000,description:"Design useful products"};

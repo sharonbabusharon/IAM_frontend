@@ -1,50 +1,79 @@
 <script>
   import { page } from "$app/stores";
-  import { goto } from "$app/navigation";
   import { onMount as on_mount } from "svelte";
-  import { get } from "svelte/store";
+  import { notice_periods, work_types, relocation_options } from "$lib/portal/filter_options.js";
   import {
-    company_records,
-    recruitment_jobs,
-  } from "$lib/portal/workspace_state.js";
-  import { jobs } from "$lib/portal/data.js";
-  import { notice_periods, work_types } from "$lib/portal/filter_options.js";
-  import {
-    new_job_form,
-    job_form_error,
-    normalise_job_post,
-  } from "$lib/portal/job_post_rules.js";
+    skills as skill_terms,
+    designations as designation_terms,
+    currency_options,
+  } from "$lib/portal/reference.js";
+  import { new_job_form, job_form_error } from "$lib/portal/job_post_rules.js";
+  import { jobs_api } from "$lib/portal/jobs_api.js";
   import { toast } from "$lib/portal/state.js";
   import Markdown_editor from "$lib/portal/markdown_editor.svelte";
   import Heading from "$lib/portal/page_heading.svelte";
-  import Notice from "$lib/portal/preview_notice.svelte";
   import Location_picker from "$lib/portal/location_picker.svelte";
   import Modal from "$lib/portal/modal.svelte";
-  let form = new_job_form();
+  let form = { ...new_job_form(), relocation: "On their own" };
+  let stages = "";
   let skill_text = "";
   let error = "";
   let confirming = false;
-  let completed = false;
-  let preview_id = "";
-  const skill_options = [...new Set(jobs.flatMap((j) => j.skills))];
-  on_mount(() => {
-    const id = $page.url.searchParams.get("edit");
-    if (id) {
-      const job = get(recruitment_jobs).find((j) => j.id === id);
-      if (job)
-        form = {
-          ...new_job_form(),
-          ...job,
-          modes: job.modes || [job.mode],
-          types: job.types || [job.type],
-          locations: job.locations || job.location_ids || [],
-          worldwide: job.worldwide || job.location_type === "world_remote",
-          description: job.description || job.summary || "",
-          company_name: job.company_name || "",
-          min_experience: job.min_experience ?? job.experience_years ?? 0,
-          rounds: job.rounds ?? job.interview_rounds ?? 1,
-          salary_hidden: !!job.salary_hidden,
-        };
+  let completed = null; // the published job
+  let saving = false;
+  let editing_id = "";
+  let draft_id = "";
+  let companies = [];
+  $: skill_options = $skill_terms.map((term) => term.name);
+  // Manual: interview rounds = the number of stages the recruiter lists.
+  $: stage_list = stages
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  $: form.rounds = stage_list.length;
+  $: chosen_company = companies.find((c) => c.slug === form.company);
+  on_mount(async () => {
+    const [mine, drafts] = await Promise.all([jobs_api.companies(), jobs_api.drafts()]);
+    if (mine.status === 401) error = "Sign in to post a job.";
+    companies = mine.ok ? mine.data : [];
+    const edit_id = $page.url.searchParams.get("edit");
+    const draft = $page.url.searchParams.get("draft");
+    if (edit_id) {
+      const result = await jobs_api.get(edit_id);
+      if (!result.ok || !result.data.can_manage) {
+        error = "You can only edit jobs you posted.";
+        return;
+      }
+      const job = result.data;
+      editing_id = job.id;
+      form = {
+        ...new_job_form(),
+        title: job.title,
+        tier: job.tier === "Free" ? "Free" : "Premium",
+        company: job.company_slug ?? "",
+        company_name: job.company_slug ? "" : job.company_name,
+        skills: job.skills,
+        min_experience: job.experience_years,
+        locations: job.location_ids,
+        worldwide: !!job.worldwide_remote,
+        salary_max: job.salary_max ?? "",
+        currency: job.currency ?? "INR",
+        salary_hidden: job.salary_hidden,
+        modes: job.work_modes,
+        types: job.work_types,
+        notice: job.notice_periods,
+        relocation: job.relocation,
+        application: job.application,
+        external_url: job.external_url ?? "",
+        description: job.description,
+      };
+      stages = job.interview_stages.join("\n");
+    } else if (draft && drafts.ok) {
+      const found = drafts.data.find((d) => d.id === draft);
+      if (found) {
+        draft_id = found.id;
+        ({ stages = "", ...form } = { ...new_job_form(), ...found.form });
+      }
     }
   });
   $: if (form.tier === "Free") {
@@ -55,9 +84,7 @@
   function toggle(key, value) {
     form = {
       ...form,
-      [key]: form[key].includes(value)
-        ? form[key].filter((v) => v !== value)
-        : [...form[key], value],
+      [key]: form[key].includes(value) ? form[key].filter((v) => v !== value) : [...form[key], value],
     };
   }
   function add_skill() {
@@ -67,46 +94,58 @@
       error = "A job can include up to 15 skills.";
       return;
     }
-    if (!form.skills.some((s) => s.toLowerCase() === value.toLowerCase()))
-      form.skills = [...form.skills, value];
+    if (!form.skills.some((s) => s.toLowerCase() === value.toLowerCase())) form.skills = [...form.skills, value];
     skill_text = "";
     error = "";
   }
-  function save(status = "Draft") {
-    const id = form.id || `draft-${Date.now().toString(36)}`;
-    const existing = get(recruitment_jobs).find((j) => j.id === id);
-    const company_name =
-      form.company_name.trim() ||
-      get(company_records).find((c) => c.id === form.company)?.name ||
-      "Confidential";
-    const post = {
-      ...normalise_job_post({ ...form, company_name }),
-      id,
-      poster_id: "preview-alex",
-      status,
-      applicants: existing?.applicants || 0,
-      views: existing?.views || 0,
-      posted: existing?.posted || 0,
-    };
-    recruitment_jobs.update((items) => [
-      post,
-      ...items.filter((j) => j.id !== id),
-    ]);
-    form.id = id;
-    preview_id = id;
-    if (status === "Draft") {
-      toast("Draft saved in this browser.");
-      goto("/recruiter/jobs?status=Draft");
-    } else {
-      confirming = false;
-      completed = true;
-    }
+  async function save_draft() {
+    // Manual: drafts skip validation.
+    const result = await jobs_api.save_draft(draft_id, { ...form, stages });
+    if (!result.ok) return toast(result.error);
+    draft_id = result.data.id;
+    toast("Draft saved. Find it under Manage jobs.");
   }
   function review() {
     error = job_form_error(form);
+    if (!error && !form.salary_max) error = "Enter the maximum annual salary.";
     if (!error) confirming = true;
   }
+  async function publish() {
+    const input = {
+      tier: form.tier === "Free" ? "free" : "paid",
+      company_slug: form.tier === "Free" ? "" : form.company,
+      company_name: form.company_name,
+      payment_method: form.payment === "credits" ? "company_credits" : "out_of_pocket",
+      designation: form.title,
+      skills: form.skills,
+      min_experience: Number(form.min_experience),
+      location_ids: form.locations,
+      worldwide_remote: form.worldwide,
+      salary_max: Number(form.salary_max),
+      currency: form.currency,
+      hide_salary: form.salary_hidden,
+      work_modes: form.modes,
+      work_types: form.types,
+      notice_periods: form.notice,
+      relocation: form.relocation,
+      interview_stages: stage_list,
+      application: form.application,
+      external_url: form.external_url,
+      description: form.description,
+    };
+    saving = true;
+    const result = editing_id ? await jobs_api.edit(editing_id, input) : await jobs_api.post(input);
+    saving = false;
+    confirming = false;
+    if (!result.ok) {
+      error = result.error;
+      return;
+    }
+    if (draft_id) jobs_api.delete_draft(draft_id);
+    completed = result.data;
+  }
 </script>
+
 
 <svelte:head><title>Post a job — Referise</title></svelte:head>
 <main id="main-content" class="workspace portal_container">
@@ -115,17 +154,18 @@
     title="Good work starts"
     accent="with a clear brief."
     description="Tell people what they’ll do, how they’ll work and what they can expect."
-  /><Notice />
+  />
   {#if completed}<section class="workspace_panel review_success">
-      <span class="workspace_badge green">PREVIEW SAVED</span>
-      <h2>A new possibility, ready to review.</h2>
+      <span class="workspace_badge green">{editing_id ? "UPDATED" : "PUBLISHED"}</span>
+      <h2>A new possibility, out in the world.</h2>
       <p>
-        Your job is saved locally. It has not been published and no payment was
-        taken.
+        {completed.tier === "Free"
+          ? "Free jobs are unlisted: share the direct link below with candidates."
+          : "Your job is live in search for the next 30 days."}
       </p>
+      {#if completed.tier === "Free"}<p><code>{$page.url.origin}/jobs/share/{completed.share_hash}</code></p>{/if}
       <div class="workspace_actions" style="justify-content:center">
-        <a class="button button_dark" href={`/recruiter/jobs/${preview_id}`}
-          >View job preview ↗</a
+        <a class="button button_dark" href={`/jobs/${completed.id}`}>View job ↗</a
         ><a class="button button_outline" href="/recruiter/jobs">Manage jobs</a>
       </div>
     </section>
@@ -153,10 +193,10 @@
             >Company connection<select
               class="field_input"
               bind:value={form.company}
+              disabled={!!editing_id}
               ><option value="">Unlinked / confidential</option
-              >{#each $company_records.filter((c) => c.id === "forma") as company}<option
-                  value={company.id}
-                  >{company.name} · approved sample membership</option
+              >{#each companies as company}<option value={company.slug}
+                  >{company.name} · {company.role === "admin" ? "admin" : company.role === "hr" ? "HR" : "member"}</option
                 >{/each}</select
             ></label
           ><label class="field_label"
@@ -164,9 +204,8 @@
               class="field_input"
               maxlength="120"
               bind:value={form.company_name}
-              placeholder={form.company
-                ? "Forma"
-                : "Confidential (if left blank)"}
+              disabled={!!form.company}
+              placeholder={chosen_company?.name ?? "Confidential (if left blank)"}
             /></label
           >{#if form.tier === "Premium"}<label class="field_label"
               >Payment method<select
@@ -189,7 +228,7 @@
               maxlength="120"
               bind:value={form.title}
             /><datalist id="job_designations"
-              >{#each jobs as job}<option value={job.title} />{/each}</datalist
+              >{#each $designation_terms as term}<option value={term.name} />{/each}</datalist
             ></label
           ><label class="field_label"
             >Required skills *
@@ -254,8 +293,7 @@
           <div class="form_grid">
             <label class="field_label"
               >Currency<select class="field_input" bind:value={form.currency}
-                ><option>INR</option><option>USD</option><option>GBP</option
-                ><option>EUR</option></select
+                >{#each $currency_options as code}<option>{code}</option>{/each}</select
               ></label
             ><label class="field_label"
               >Maximum annual salary *<input
@@ -298,20 +336,16 @@
               >Relocation support<select
                 class="field_input"
                 bind:value={form.relocation}
-                ><option>Supported</option><option>Not supported</option><option
-                  >On your own</option
-                ></select
+                >{#each relocation_options as option}<option>{option}</option>{/each}</select
               ></label
             ><label class="field_label"
-              >Interview rounds *<input
+              >Interview stages · one per line<textarea
                 class="field_input"
-                type="number"
-                min="0"
-                max="20"
-                step="1"
-                required
-                bind:value={form.rounds}
-              /></label
+                rows="4"
+                maxlength="2000"
+                placeholder={"HR screen\nTechnical round\nPanel interview"}
+                bind:value={stages}
+              ></textarea><small>{stage_list.length} rounds</small></label
             >
           </div>
         </section>
@@ -343,7 +377,7 @@
             {form.title || "Your next great hire."}
           </h2>
           <p>
-            {form.company_name || (form.company ? "Forma" : "Confidential")}
+            {chosen_company?.name || form.company_name || "Confidential"}
           </p>
           <dl class="facts_list">
             <div>
@@ -362,22 +396,22 @@
             </div>
             <div>
               <dt>Posting fee</dt>
-              <dd>{form.tier === "Free" ? "₹0" : "Awaiting pricing API"}</dd>
+              <dd>{form.tier === "Free" ? "₹0" : "Set by the platform (₹0 for now)"}</dd>
             </div>
           </dl>
           <div class="workspace_actions">
             <button
               type="button"
               class="button button_outline button_full"
-              on:click={() => save()}>Save as draft</button
+              on:click={save_draft}>Save as draft</button
             ><button class="button button_dark button_full" type="submit"
               >Review job preview ↗</button
             >
           </div>
           {#if error}<p class="filter_error" role="alert">{error}</p>{/if}
           <p class="work_note">
-            Drafts are saved locally. Publishing, credit checks and payments
-            need the job API.
+            Drafts are saved to your account. Paid posts are free while the
+            platform fee is ₹0; card and credit payments arrive later.
           </p>
         </section>
       </aside>
@@ -396,21 +430,18 @@
             : "This unlinked job is intended for public search only. It will not appear on an official company page."}
       </p>
       {#if form.tier === "Premium"}<p>
-          Payment method: {form.payment === "credits"
-            ? "Company credits"
-            : "Out of pocket"}. The actual fee and available allowance must be
-          checked before live publishing.
+          Payment method: {form.payment === "credits" ? "Company credits" : "Out of pocket"}.
         </p>{/if}
     </div>
     <p class="form_helper">
-      Confirming saves a local preview. No credits are deducted.
+      {editing_id ? "Changes go live immediately." : "Your job goes live as soon as you confirm."}
     </p>
     <div class="form_actions">
       <button
         class="button button_outline"
         on:click={() => (confirming = false)}>Keep editing</button
-      ><button class="button button_dark" on:click={() => save("Preview")}
-        >Confirm preview</button
+      ><button class="button button_dark" disabled={saving} on:click={publish}
+        >{saving ? "Publishing…" : editing_id ? "Save changes" : "Publish job"}</button
       >
     </div></Modal
   >{/if}

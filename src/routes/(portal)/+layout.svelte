@@ -48,7 +48,7 @@
   /></svelte:head
 >
 <div class="portal" class:cobalt_pages={$page.url.pathname !== "/"}>
-  <Header user={data.user} />
+  <Header user={data?.user} companies={data?.companies ?? []} />
   {#if $membership_open}<Membership_panel />{/if}
   {#if offline}<div class="offline_notice" role="status">
       <Icon name="wifi" size={16} />You’re offline. Your saved preview is still

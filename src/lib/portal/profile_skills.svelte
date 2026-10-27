@@ -2,15 +2,16 @@
   import Skill_line from "./skill_line.svelte";
   let all_open = false;
   import { profile, toast } from "./state.js";
+  import { profile_api, to_store } from "./profile_api.js";
   import Modal from "./modal.svelte";
-  import { jobs } from "./data.js";
+  import { skills as skill_terms } from "./reference.js";
   export let readonly = false;
   let editing = false;
   let groups = [];
   let dragged = null;
   let new_skill = "";
   let target_group = 0;
-  const suggestions = [...new Set(jobs.flatMap((j) => j.skills))];
+  $: suggestions = $skill_terms.map((term) => term.name);
   $: displayed = $profile.skill_groups?.length
     ? $profile.skill_groups
     : [{ name: "Core skills", skills: $profile.skills }];
@@ -19,16 +20,17 @@
     editing = true;
     target_group = 0;
   }
-  function save() {
+  async function save() {
     if (groups.some((g) => !g.name.trim())) {
       toast("Give each skill group a name.");
       return;
     }
-    profile.update((p) => ({
-      ...p,
-      skill_groups: groups,
-      skills: [...new Set(groups.flatMap((g) => g.skills))],
-    }));
+    const result = await profile_api.save({ ...$profile, skill_groups: groups });
+    if (!result.ok) {
+      toast(result.error);
+      return;
+    }
+    profile.set(to_store(result.data));
     editing = false;
     toast("Skill groups saved.");
   }

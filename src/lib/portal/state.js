@@ -1,7 +1,6 @@
 import { writable, get } from "svelte/store";
 import { browser } from "$app/environment";
 import { default_profile, jobs } from "./data";
-import { restore_profile } from "./profile_validation.js";
 import { default_filters } from "./search.js";
 export const search_filters = writable(default_filters());
 export const viewing_currency = writable("INR");
@@ -63,11 +62,9 @@ export function hydrate_preview() {
       ),
     );
   saved_searches.subscribe((next) => persist("searches", next));
-  const stored = read("profile");
-  if (stored && typeof stored === "object" && !Array.isArray(stored)) {
-    profile.set(restore_profile(stored, default_profile));
-  }
-  profile.subscribe((next) => persist("profile", next));
+  try {
+    localStorage.removeItem("referise-preview:profile"); // profiles are stored on the server now
+  } catch {}
 }
 export function toggle_saved(id) {
   const was_saved = get(saved_jobs).includes(id);

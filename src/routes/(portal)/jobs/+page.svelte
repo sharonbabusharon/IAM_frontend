@@ -1,7 +1,6 @@
 <script>
   import Designation_picker from "$lib/portal/designation_picker.svelte";
   import Location_search from "$lib/portal/location_search.svelte";
-  import { profile } from "$lib/portal/state.js";
   import { allowed_filters } from "$lib/portal/membership_rules.js";
   import {
     membership_settings,
@@ -15,8 +14,6 @@
     $membership_settings,
     $premium_active,
   );
-
-  import { closed_job_ids } from "$lib/portal/workspace_state.js";
   import { page } from "$app/stores";
   import { goto, afterNavigate as after_navigate } from "$app/navigation";
   import Icon from "$lib/portal/icon.svelte";
@@ -24,15 +21,15 @@
   import Job_card from "$lib/portal/job_card.svelte";
   import Modal from "$lib/portal/modal.svelte";
   import Filter_panel from "$lib/portal/filter_panel.svelte";
-  import { jobs } from "$lib/portal/data";
+  import { browser } from "$app/environment";
   import {
     filters_from_params,
     filters_to_params,
     default_filters,
-    filter_jobs,
     filter_error,
     active_filter_labels,
   } from "$lib/portal/search";
+  import { jobs_api, to_card, to_criteria } from "$lib/portal/jobs_api.js";
   import {
     saved_jobs,
     saved_searches,
@@ -41,6 +38,7 @@
     viewing_currency,
     toast,
   } from "$lib/portal/state";
+  import { location_label, rates, skills as skill_terms, designations as designation_terms } from "$lib/portal/reference.js";
   after_navigate(() => {
     const current = filters_from_params($page.url.searchParams);
     search_filters.set(current);
@@ -61,22 +59,31 @@
     previous_search = $page.url.search;
     current_page = 1;
   }
-  $: results = filter_jobs(
-    jobs.filter((j) => !$closed_job_ids.includes(j.id)),
-    effective_filters,
-    $saved_jobs,
-    $applications,
-    $profile.skills,
-  );
+  // Results come from the backend: one request per applied search or page
+  // (manual "Filters"); jobs you applied to are excluded server-side.
+  let total = 0;
+  let page_jobs = [];
+  let searching = true;
+  let search_error = "";
+  let search_seq = 0;
+  $: skill_ids = Object.fromEntries($skill_terms.map((t) => [t.name, t.id]));
+  $: designation_ids = Object.fromEntries($designation_terms.map((t) => [t.name, t.id]));
+  $: if (browser) run_search(effective_filters, current_page, $rates, skill_ids, designation_ids, effective_filters.saved ? $saved_jobs : []);
+  async function run_search(f, page, rates, ids, designation_ids, saved) {
+    const seq = ++search_seq;
+    searching = true;
+    const result = await jobs_api.search(to_criteria(f, { rates, skill_ids: ids, designation_ids, saved, page, page_size }));
+    if (seq !== search_seq) return; // a newer search started meanwhile
+    searching = false;
+    search_error = result.ok ? "" : result.error;
+    total = result.ok ? result.data.total : 0;
+    page_jobs = result.ok ? result.data.jobs.map((j) => to_card(j, $location_label)) : [];
+  }
   $: pending =
     filters_to_params(filters).toString() !==
     filters_to_params(applied_filters).toString();
-  $: page_count = Math.max(1, Math.ceil(results.length / page_size));
-  $: if (current_page > page_count) current_page = page_count;
-  $: visible_jobs = results.slice(
-    (current_page - 1) * page_size,
-    current_page * page_size,
-  );
+  $: page_count = Math.max(1, Math.ceil(total / page_size));
+  $: visible_jobs = page_jobs;
   $: active_filters = active_filter_labels(effective_filters);
   $: filter_count = active_filters.length;
   function sync() {
@@ -248,8 +255,8 @@
         <div>
           <span class="eyebrow_label">YOUR NEXT MOVE</span>
           <h2 id="results-heading">
-            {results.length}
-            {results.length === 1 ? "opportunity" : "opportunities"}<span>
+            {total}
+            {total === 1 ? "opportunity" : "opportunities"}<span>
               worth a look</span
             >
           </h2>
@@ -278,7 +285,9 @@
               sync();
             }}
             ><Icon name="bookmark" size={13} />Saved ({$saved_jobs.length})</button
-          ><span class="sample_results_label">Sample opportunities</span>
+          ><span class="sample_results_label"
+            >{searching ? "Searching…" : search_error}</span
+          >
         </div>
         <div class="results_display_controls">
           <label class="sort_control"
@@ -324,7 +333,7 @@
           >
         </div>{/if}
       <div aria-live="polite" class="visually_hidden">
-        {results.length} jobs match your search.
+        {total} jobs match your search.
       </div>
       {#if visible_jobs.length}<div
           class="results_jobs"
@@ -340,8 +349,8 @@
           <span
             >Showing {(current_page - 1) * page_size + 1}–{Math.min(
               current_page * page_size,
-              results.length,
-            )} of {results.length} opportunities</span
+              total,
+            )} of {total} opportunities</span
           >
           <div>
             <button

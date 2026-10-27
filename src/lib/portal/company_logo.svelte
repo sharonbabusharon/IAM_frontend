@@ -2,7 +2,9 @@
   import { company_records } from "./workspace_state.js";
   export let id = "forma";
   export let size = 44;
-  $: company = $company_records.find((c) => c.id === id) || {
+  // A live company's uploaded logo; fixtures fall back to their drawn marks.
+  export let src = "";
+  $: company = (src && { logo: src, color: "#3155ef", background: "#e9edff" }) || $company_records.find((c) => c.id === id) || {
     name: "Company",
     color: "#3155ef",
     background: "#e9edff",

@@ -1,5 +1,4 @@
 <script>
-  import { jobs } from "./data.js";
   import Location_picker from "./location_picker.svelte";
   import { work_types, relocation_options } from "./filter_options.js";
   export let draft;
@@ -107,24 +106,6 @@
         ])}>Add social link</button
     >
   {:else if section === "preferences"}
-    <fieldset>
-      <legend>Target roles from the sample master list</legend>
-      <div class="profile_choice_grid">
-        {#each jobs as job}<label class="profile_field_check"
-            ><input
-              type="checkbox"
-              checked={draft.target_roles.includes(job.id)}
-              on:change={() => {
-                toggle("target_roles", job.id);
-                draft.roles = jobs
-                  .filter((item) => draft.target_roles.includes(item.id))
-                  .map((item) => item.title)
-                  .join(", ");
-              }}
-            />{job.title}</label
-          >{/each}
-      </div>
-    </fieldset>
     <h3>Compensation</h3>
     <div class="form_grid">
       <label class="field_label"

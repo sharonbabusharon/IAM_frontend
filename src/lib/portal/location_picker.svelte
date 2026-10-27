@@ -1,6 +1,7 @@
 <script>
   import Location_node from "./location_node.svelte";
-  import { location_tree } from "./filter_options.js";
+  import { leaves } from "./filter_options.js";
+  import { location_tree, reference_status } from "./reference.js";
   export let selected = [];
   export let query = "";
   export let searchable = true;
@@ -8,13 +9,28 @@
   export let worldwide = false;
   export let disabled_worldwide = false;
   let expanded = [];
-  function matches(node) {
-    return (
-      node.name.toLowerCase().includes(query.toLowerCase()) ||
-      node.children?.some(matches)
-    );
+  // ~38k places: fully expanding everything would freeze the page, so
+  // expand-all and auto-expand only apply while the view is small enough.
+  const max_open_leaves = 400;
+
+  $: needle = query.trim().toLowerCase();
+  $: visible = needle.length >= 2 ? match($location_tree, needle) : $location_tree;
+  $: visible_leaves = needle.length >= 2 ? leaves(visible).length : Infinity;
+  $: if (needle.length >= 2 && visible_leaves <= max_open_leaves)
+    expanded = branches(visible);
+
+  // Keeps nodes whose name matches (with their whole subtree) and the
+  // ancestors of matching nodes.
+  function match(nodes, needle) {
+    return nodes.flatMap((node) => {
+      if (node.name.toLowerCase().includes(needle)) return [node];
+      const children = node.children ? match(node.children, needle) : [];
+      return children.length ? [{ ...node, children }] : [];
+    });
   }
-  $: visible_tree = query ? location_tree.filter(matches) : location_tree;
+  function branches(nodes) {
+    return nodes.flatMap((n) => (n.children ? [n.id, ...branches(n.children)] : []));
+  }
 </script>
 
 <div class="location_picker">
@@ -25,34 +41,45 @@
         disabled={disabled_worldwide}
       />Worldwide remote{disabled_worldwide ? " · Premium" : ""}</label
     >{/if}
-  {#if searchable}<label class="field_label"
-      >Find a location<input
-        class="field_input"
-        placeholder="Country, state or city"
-        bind:value={query}
-      /></label
-    >{/if}
+  {#if searchable}<input
+      class="field_input"
+      type="search"
+      placeholder="Search a country, state or city"
+      aria-label="Search locations"
+      bind:value={query}
+    />{/if}
   <div class="location_actions">
     <button
       type="button"
       on:click={() =>
-        (expanded = location_tree.flatMap((country) => [
-          country.id,
-          ...country.children.map((region) => region.id),
-        ]))}>Expand all</button
+        (expanded =
+          visible_leaves <= max_open_leaves
+            ? branches(visible)
+            : visible.map((country) => country.id))}>Expand all</button
     ><button type="button" on:click={() => (expanded = [])}>Collapse all</button
     >
   </div>
+  {#if $reference_status === "error" && !$location_tree.length}<p
+      class="workspace_hint warning"
+    >
+      Locations couldn’t be loaded. Check your connection and reload.
+    </p>{:else if !$location_tree.length}<p class="workspace_hint">
+      Loading locations…
+    </p>{:else if needle.length >= 2 && !visible.length}<p
+      class="workspace_hint"
+    >
+      No places match “{query.trim()}”.
+    </p>{/if}
   <ul>
-    {#each visible_tree as node}<Location_node
+    {#each visible as node (node.id)}<Location_node
         {node}
-        {query}
         bind:selected
         bind:expanded
       />{/each}
   </ul>
   <small
-    >Sample locations · {selected.length}
-    {selected.length === 1 ? "city" : "cities"} selected</small
+    >{selected.length}
+    {selected.length === 1 ? "city" : "cities"} selected{#if needle.length >= 2 && visible_leaves > max_open_leaves}
+      · Keep typing to narrow {visible_leaves.toLocaleString()} matches{/if}</small
   >
 </div>

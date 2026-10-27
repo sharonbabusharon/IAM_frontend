@@ -40,6 +40,11 @@
     </nav>
     <div class="footer_bottom">
       <span>© {new Date().getFullYear()} Referise. A world of possibility.</span
+      ><span
+        >Locations: <a href="https://www.geonames.org/" rel="noopener">GeoNames</a>
+        (CC BY 4.0) · <a href="https://www.exchangerate-api.com" rel="noopener"
+          >Rates by ExchangeRate-API</a
+        ></span
       ><span class="preview_label"
         ><span></span>Interactive preview · Sample data</span
       ><button on:click={() => (privacy = true)}

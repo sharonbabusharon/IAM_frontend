@@ -136,6 +136,20 @@
           <p>{text}</p>
         </section>{/each}
     </div>
+    <section class="workspace_panel" style="margin-top:32px">
+      <span class="eyebrow_label">DATA SOURCES</span>
+      <p>
+        Location data from <a href="https://www.geonames.org/" rel="noopener"
+          >GeoNames</a
+        >, licensed under
+        <a href="https://creativecommons.org/licenses/by/4.0/" rel="noopener"
+          >CC BY 4.0</a
+        >. Exchange rates by
+        <a href="https://www.exchangerate-api.com" rel="noopener"
+          >ExchangeRate-API</a
+        >.
+      </p>
+    </section>
   {:else if kind === "faq"}<div class="workspace_grid">
       <section class="workspace_panel">
         <label class="field_label"

@@ -1,12 +1,13 @@
 <script>
-  import { jobs } from "./data.js";
+  import { designations } from "./reference.js";
   export let selected = [];
   export let query = "";
   export let disabled = false;
   let open = false;
-  $: options = jobs.filter((job) =>
-    job.title.toLowerCase().includes(query.toLowerCase()),
-  );
+  $: options = $designations
+    .map((term) => term.name)
+    .filter((name) => name.toLowerCase().includes(query.toLowerCase()))
+    .slice(0, 50);
   function toggle(id) {
     selected = selected.includes(id)
       ? selected.filter((v) => v !== id)
@@ -42,9 +43,9 @@
       {#each selected as id}<button
           type="button"
           {disabled}
-          aria-label={`Remove ${jobs.find((j) => j.id === id)?.title ?? id}`}
+          aria-label={`Remove ${id}`}
           on:click={() => toggle(id)}
-          >{jobs.find((j) => j.id === id)?.title ?? id} ×</button
+          >{id} ×</button
         >{/each}
     </div>{/if}
   {#if open && !disabled}<div
@@ -52,12 +53,12 @@
       role="group"
       aria-label="Matching designations"
     >
-      <small>Select one or more designations</small>{#each options as job}<label
+      <small>Select one or more designations</small>{#each options as name}<label
           ><input
             type="checkbox"
-            checked={selected.includes(job.id)}
-            on:change={() => toggle(job.id)}
-          />{job.title}</label
+            checked={selected.includes(name)}
+            on:change={() => toggle(name)}
+          />{name}</label
         >{:else}<p>
           No matching designation. Search your typed job title instead.
         </p>{/each}<button

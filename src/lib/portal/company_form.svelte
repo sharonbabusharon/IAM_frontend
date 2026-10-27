@@ -2,51 +2,84 @@
   import { page } from "$app/stores";
   import { goto } from "$app/navigation";
   import { onMount as on_mount } from "svelte";
-  import { get } from "svelte/store";
-  import { company_records } from "./workspace_state.js";
   import { toast } from "./state.js";
-  import { location_name } from "./filter_options.js";
+  import { companies_api, image_url } from "./companies_api.js";
   import Image_field from "./image_field.svelte";
   import Heading from "./page_heading.svelte";
-  import Notice from "./preview_notice.svelte";
   import Location_picker from "./location_picker.svelte";
   export let editing = false;
+  const sizes = ["1–10 people", "11–50 people", "51–200 people", "201–500 people", "501–1,000 people", "1,001–5,000 people", "5,000+ people"];
+  const social_fields = [["linkedin", "LinkedIn"], ["x", "X / Twitter"], ["github", "GitHub or tech blog"], ["glassdoor", "Glassdoor or Crunchbase"]];
   let form = {
     name: "",
-    id: "",
+    slug: "",
     tagline: "",
     size: "11–50 people",
-    domains: "",
+    industries: "",
     headquarters: [],
     branches: [],
     address: "",
-    description: "",
+    about: "",
     website: "",
-    linkedin: "",
-    social: "",
+    social: { linkedin: "", x: "", github: "", glassdoor: "" },
     founded: "",
     products: [],
     benefits: [],
     logo: "",
-    cover: "",
+    banner: "",
   };
+  let original_slug = "";
   let error = "";
+  let saving = false;
+  let loaded = !editing;
   let slug_edited = false;
-  on_mount(() => {
-    if (editing) {
-      const found = get(company_records).find(
-        (c) => c.id === $page.params.slug,
-      );
-      if (found) form = structuredClone(found);
+  let slug_status = "";
+  on_mount(async () => {
+    if (!editing) return;
+    const result = await companies_api.get($page.params.slug);
+    if (!result.ok) {
+      error = result.error;
+      return;
     }
+    const c = result.data;
+    if (c.viewer_role !== "admin") {
+      error = "Only company admins can edit this page.";
+      return;
+    }
+    original_slug = c.slug;
+    form = {
+      name: c.name,
+      slug: c.slug,
+      tagline: c.tagline,
+      size: c.size,
+      industries: c.industries.join(", "),
+      headquarters: c.hq_location_id ? [c.hq_location_id] : [],
+      branches: c.branch_location_ids,
+      address: c.hq_address,
+      about: c.about,
+      website: c.website,
+      social: { linkedin: "", x: "", github: "", glassdoor: "", ...c.social },
+      founded: c.founded_year ?? "",
+      products: c.products.map((p) => ({ ...p })),
+      benefits: c.benefits.map((b) => ({ ...b })),
+      logo: image_url(c.logo_url),
+      banner: image_url(c.banner_url),
+    };
+    loaded = true;
   });
   function set_slug() {
     if (!slug_edited && !editing)
-      form.id = form.name
+      form.slug = form.name
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-|-$/g, "")
         .slice(0, 60);
+  }
+  async function check_slug() {
+    slug_status = "";
+    if (!form.slug || (editing && form.slug === original_slug)) return;
+    const result = await companies_api.slug_available(form.slug);
+    slug_status = !result.ok ? result.error : result.data.available ? "✓ Available" : "Already taken — choose another link.";
   }
   function move(key, index, direction) {
     const items = [...form[key]];
@@ -55,54 +88,45 @@
     [items[index], items[target]] = [items[target], items[index]];
     form = { ...form, [key]: items };
   }
-  function save() {
+  async function save() {
     error = "";
-    const domains = form.domains
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (
-      !/^[a-z0-9-]{3,60}$/.test(form.id) ||
-      ["admin", "jobs", "login", "create", "dashboard"].includes(form.id)
-    ) {
-      error = "Choose a link with 3–60 lowercase letters, numbers or hyphens.";
-      return;
-    }
-    if (!editing && $company_records.some((c) => c.id === form.id)) {
-      error = "That company link is already used in this preview.";
-      return;
-    }
-    if (
-      domains.length < 1 ||
-      domains.length > 5 ||
-      domains.some((s) => s.length > 25)
-    ) {
-      error =
-        "Add 1–5 industries, up to 25 characters each, separated by commas.";
-      return;
-    }
     if (form.headquarters.length !== 1) {
       error = "Choose one headquarters city.";
       return;
     }
-    const saved = {
-      ...form,
-      sector: domains[0],
-      location: location_name(form.headquarters[0]),
-      color: "#3155ef",
-      background: "#e9edff",
+    const input = {
+      name: form.name,
+      slug: form.slug,
+      tagline: form.tagline,
+      size: form.size,
+      industries: form.industries.split(",").map((s) => s.trim()).filter(Boolean),
+      about: form.about,
+      website: form.website,
+      social: Object.fromEntries(Object.entries(form.social).filter(([, v]) => v.trim())),
+      founded_year: form.founded === "" || form.founded == null ? null : Number(form.founded),
+      hq_location_id: form.headquarters[0],
+      hq_address: form.address,
+      branch_location_ids: form.branches,
+      products: form.products.map(({ name, about, url }) => ({ name, about, url: url || "" })),
+      benefits: form.benefits.map(({ title, details, icon }) => ({ title, details: details || "", icon })),
     };
-    company_records.update((items) =>
-      editing
-        ? items.map((c) => (c.id === saved.id ? saved : c))
-        : [saved, ...items],
-    );
-    toast(
-      editing
-        ? "Company changes saved in this preview."
-        : "Company created in this browser preview.",
-    );
-    goto(`/company/${saved.id}`);
+    saving = true;
+    const result = editing ? await companies_api.update(original_slug, input) : await companies_api.create(input);
+    if (!result.ok) {
+      error = result.status === 401 ? "Sign in first, then try again." : result.error;
+      saving = false;
+      return;
+    }
+    const slug = result.data.slug;
+    // Images upload after the page exists; only newly cropped ones (data: URLs).
+    for (const [kind, value] of [["logo", form.logo], ["banner", form.banner]]) {
+      if (!value?.startsWith("data:")) continue;
+      const upload = await companies_api.upload_image(slug, kind, value);
+      if (!upload.ok) toast(`Saved, but the ${kind} didn’t upload: ${upload.error}`);
+    }
+    saving = false;
+    toast(editing ? "Company page updated." : "Your company page is live.");
+    goto(`/company/${slug}`);
   }
 </script>
 
@@ -117,7 +141,8 @@
     accent={editing ? "you." : "a place of their own."}
     description="Tell your story, introduce your work and help the right people find you."
     companion="sage"
-  /><Notice />
+  />
+  {#if !loaded}<p class="workspace_hint {error ? 'warning' : ''}">{error || "Loading company…"}</p>{:else}
   <form class="workspace_grid workspace_form" on:submit|preventDefault={save}>
     <div class="workspace_stack">
       <section class="workspace_panel">
@@ -136,12 +161,12 @@
             >Company link *<input
               class="field_input"
               required
-              pattern="[a-z0-9-]{(3, 60)}"
+              pattern={"[a-z0-9\\-]{3,60}"}
               maxlength="60"
-              bind:value={form.id}
-              readonly={editing}
-              on:input={() => (slug_edited = true)}
-            /><small>/company/{form.id || "your-company"}</small></label
+              bind:value={form.slug}
+              on:input={() => ((slug_edited = true), (slug_status = ""))}
+              on:blur={check_slug}
+            /><small>/company/{form.slug || "your-company"}{slug_status ? ` · ${slug_status}` : ""}</small></label
           ><label class="field_label full"
             >Tagline<input
               class="field_input"
@@ -150,7 +175,7 @@
             /><small>{form.tagline.length}/150</small></label
           ><label class="field_label"
             >Team size *<select class="field_input" bind:value={form.size}
-              >{#each ["1–10 people", "11–50 people", "51–200 people", "201–500 people", "501–1,000 people", "1,001–5,000 people", "5,000+ people"] as size}<option
+              >{#each sizes as size}<option
                   >{size}</option
                 >{/each}</select
             ></label
@@ -166,7 +191,7 @@
             >Industries *<input
               class="field_input"
               required
-              bind:value={form.domains}
+              bind:value={form.industries}
               placeholder="Workplace technology, B2B software"
             /><small>Up to 5, separated by commas. 25 characters each.</small
             ></label
@@ -199,8 +224,10 @@
             class="field_input"
             rows="7"
             maxlength="5000"
-            bind:value={form.description}
-          ></textarea><small>{form.description.length}/5,000</small></label
+            bind:value={form.about}
+          ></textarea><small
+            >{form.about.length}/5,000 · **bold**, *italic*, "- " lists and "## " headings</small
+          ></label
         >
         <div class="form_grid">
           <label class="field_label full"
@@ -212,21 +239,14 @@
               placeholder="https://"
               bind:value={form.website}
             /></label
-          ><label class="field_label"
-            >LinkedIn<input
-              class="field_input"
-              type="url"
-              pattern="https?://.*"
-              bind:value={form.linkedin}
-            /></label
-          ><label class="field_label"
-            >Another social or blog link<input
-              class="field_input"
-              type="url"
-              pattern="https?://.*"
-              bind:value={form.social}
-            /></label
-          >
+          >{#each social_fields as [key, label]}<label class="field_label"
+              >{label}<input
+                class="field_input"
+                type="url"
+                pattern="https?://.*"
+                bind:value={form.social[key]}
+              /></label
+            >{/each}
         </div>
       </section>
       <section class="workspace_panel">
@@ -238,7 +258,7 @@
             on:click={() =>
               (form.products = [
                 ...form.products,
-                { name: "", description: "", url: "", image: "" },
+                { name: "", about: "", url: "" },
               ])}>Add product +</button
           >
         </div>
@@ -259,13 +279,9 @@
                 class="field_input"
                 required
                 maxlength="500"
-                bind:value={product.description}
+                bind:value={product.about}
               ></textarea></label
-            ><Image_field
-              label="Product image"
-              max_mb={1}
-              bind:value={product.image}
-            /><label class="field_label"
+            ><label class="field_label"
               >Product link<input
                 class="field_input"
                 type="url"
@@ -303,7 +319,7 @@
             on:click={() =>
               (form.benefits = [
                 ...form.benefits,
-                { title: "", description: "", icon: "heart" },
+                { title: "", details: "", icon: "heart" },
               ])}>Add benefit +</button
           >
         </div>
@@ -332,7 +348,7 @@
                 >Details<textarea
                   class="field_input"
                   maxlength="300"
-                  bind:value={benefit.description}
+                  bind:value={benefit.details}
                 ></textarea></label
               >
             </div>
@@ -369,7 +385,7 @@
           label="Cover"
           max_mb={5}
           ratio={3}
-          bind:value={form.cover}
+          bind:value={form.banner}
         />
       </section>
       <section class="workspace_panel">
@@ -379,15 +395,16 @@
           change.
         </p>
         <p class="workspace_hint">
-          This creates a local preview. Live publishing and link availability
-          checks need the company API.
+          Your page goes live as soon as you {editing ? "save" : "create it"}.
+          You become its first admin.
         </p>
         {#if error}<p class="filter_error" role="alert">{error}</p>{/if}<button
           class="button button_dark button_full"
           type="submit"
-          >{editing ? "Save changes" : "Create company preview"} ↗</button
+          disabled={saving}
+          >{saving ? "Saving…" : editing ? "Save changes" : "Create company page"} ↗</button
         >
       </section>
     </aside>
-  </form>
+  </form>{/if}
 </main>

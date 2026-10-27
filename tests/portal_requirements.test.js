@@ -14,7 +14,16 @@ import {
   restore_profile,
   profile_error,
 } from "../src/lib/portal/profile_validation.js";
-import { leaves, location_tree } from "../src/lib/portal/filter_options.js";
+import { get } from "svelte/store";
+import { leaves } from "../src/lib/portal/filter_options.js";
+import {
+  set_reference,
+  location_tree,
+  build_location_tree,
+} from "../src/lib/portal/reference.js";
+import { test_locations, test_rates } from "./fixtures/reference.js";
+
+set_reference({ locations: test_locations, rates: test_rates });
 
 const search = (filters, data = jobs, applied = []) =>
   filter_jobs(data, { ...default_filters(), ...filters }, [], applied);
@@ -34,9 +43,9 @@ test("every new filter survives a shareable URL round trip", () => {
     industries: ["Developer tools"],
     sizes: ["51–200 people"],
     benefits: ["Paid leave"],
-    designations: [jobs[0].id],
+    designations: [jobs[0].title],
     skills: ["Figma"],
-    locations: ["in-blr"],
+    locations: ["1277333"],
     easy: true,
     saved: true,
     worldwide: true,
@@ -94,11 +103,11 @@ test("worldwide remote does not include geographically restricted remote jobs", 
 });
 test("city trees flatten to leaves and radius requires a single city", () => {
   assert.deepEqual(
-    leaves([location_tree[0]]).map((city) => city.id),
-    ["in-blr", "in-bom", "in-hyd"],
+    leaves([get(location_tree)[0]]).map((city) => city.id),
+    ["1277333", "1275339", "1269843"],
   );
   assert.equal(
-    search({ locations: ["in-blr", "in-bom"] }).length,
+    search({ locations: ["1277333", "1275339"] }).length,
     jobs.filter(
       (job) =>
         !job.unlisted &&
@@ -108,8 +117,8 @@ test("city trees flatten to leaves and radius requires a single city", () => {
   );
   assert.ok(filter_error({ ...default_filters(), radius: 25 }));
   assert.deepEqual(
-    search({ locations: ["in-blr"], radius: 25 }),
-    search({ locations: ["in-blr"] }),
+    search({ locations: ["1277333"], radius: 25 }),
+    search({ locations: ["1277333"] }),
   );
 });
 test("salary ranges compare INR-normalized values, not currency labels", () => {
@@ -275,4 +284,27 @@ test("profile validation catches reserved handles, date inversions and missing a
 test("free fixture jobs are accessible by direct link but excluded from public discovery", () => {
   assert.ok(jobs.some((job) => job.tier === "Free"));
   assert.ok(search({}).every((job) => job.tier !== "Free"));
+});
+
+test("location tree: countries without cities are pruned, children sorted", () => {
+  const tree = build_location_tree(test_locations);
+  assert.deepEqual(tree.map((c) => c.name), ["India", "United Kingdom", "United States"]);
+  assert.deepEqual(tree[0].children.map((r) => r.name), ["Karnataka", "Maharashtra", "Telangana"]);
+  assert.equal(tree[0].children[0].children[0].children, undefined); // cities are leaves
+});
+test("shared links keep GeoNames city ids and drop anything else", () => {
+  const filters = filters_from_params(
+    new URLSearchParams("city=1277333&city=in-blr&city=1%20OR%201&currency=EUR"),
+  );
+  assert.deepEqual(filters.locations, ["1277333"]);
+  assert.equal(filters.currency, "EUR");
+  assert.equal(
+    active_filter_labels(filters).find((l) => l.key === "locations").label,
+    "Bengaluru",
+  );
+});
+test("salaries show in the original currency until rates are known", () => {
+  const job = { salary_min: 100, salary_max: 200, currency: "USD", salary_hidden: false };
+  assert.match(converted_salary(job, "JPY", { INR: 1, USD: 85 }), /^\$100–\$200/);
+  assert.match(converted_salary(job, "INR", { INR: 1, USD: 85 }), /₹8,500–₹17,000/);
 });

@@ -1,23 +1,24 @@
 <script>
   import { keep_active_visible } from "$lib/portal/keep_active_visible.js";
-  import { closed_job_ids } from "$lib/portal/workspace_state.js";
   import { page } from "$app/stores";
+  import { followed_companies } from "$lib/portal/workspace_state.js";
+  import { browser } from "$app/environment";
+  import { jobs_api, to_card, to_criteria } from "$lib/portal/jobs_api.js";
   import {
-    company_records,
-    followed_companies,
-    team_members,
-    initials,
-  } from "$lib/portal/workspace_state.js";
-  import { jobs } from "$lib/portal/data.js";
-  import { location_name } from "$lib/portal/filter_options.js";
-  import { applications } from "$lib/portal/state.js";
-  import { filter_jobs, default_filters } from "$lib/portal/search.js";
+    location_label,
+    rates,
+    currency_options,
+  } from "$lib/portal/reference.js";
+  import { image_url } from "$lib/portal/companies_api.js";
+  import { render_markdown } from "$lib/portal/markdown.js";
+  import { default_filters } from "$lib/portal/search.js";
   import Company_logo from "$lib/portal/company_logo.svelte";
   import Companion from "$lib/portal/companion.svelte";
   import Job_card from "$lib/portal/job_card.svelte";
-  import Notice from "$lib/portal/preview_notice.svelte";
   import Empty from "$lib/portal/empty_state.svelte";
-  $: company = $company_records.find((c) => c.id === $page.params.slug);
+  export let data;
+  $: company = data.company;
+  const social_labels = { linkedin: "LinkedIn", x: "X / Twitter", github: "GitHub / tech blog", glassdoor: "Glassdoor / Crunchbase" };
   $: tab = ["overview", "jobs", "culture", "products", "team"].includes(
     $page.url.searchParams.get("tab"),
   )
@@ -25,20 +26,21 @@
     : "overview";
   let filters = default_filters();
   let applied_filters = default_filters();
-  $: company_jobs = company
-    ? jobs.filter(
-        (j) =>
-          j.company === company.id &&
-          !$closed_job_ids.includes(j.id) &&
-          !j.unlisted &&
-          j.tier !== "Free" &&
-          j.posted <= 30,
-      )
-    : [];
-  $: results = filter_jobs(company_jobs, applied_filters, [], $applications);
-  $: members = $team_members.filter(
-    (m) => m.company === company?.id && m.status === "Current",
-  );
+  // Manual "Company jobs": the platform search, locked to this company.
+  let results = [];
+  let any_jobs = false;
+  let loading = false;
+  $: if (browser && company && tab === "jobs") load_jobs(applied_filters, $rates);
+  async function load_jobs(filters, rates) {
+    loading = true;
+    const result = await jobs_api.search({
+      ...to_criteria(filters, { rates, page_size: 50 }),
+      company: company.slug,
+    });
+    loading = false;
+    results = result.ok ? result.data.jobs.map((j) => to_card(j, $location_label)) : [];
+    if (results.length) any_jobs = true;
+  }
   function follow() {
     followed_companies.update((v) =>
       v.includes(company.id)
@@ -52,11 +54,10 @@
   ><title>{company?.name || "Company not found"} — Referise</title></svelte:head
 >
 <main id="main-content" class="workspace portal_container">
-  {#if company}<Notice />
-    <div class="company_cover">
-      {#if company.cover}<img
+  {#if company}<div class="company_cover">
+      {#if company.banner_url}<img
           class="company_cover_image"
-          src={company.cover}
+          src={image_url(company.banner_url)}
           alt={`${company.name} cover`}
         />{:else}<h2>Different people.<br />Shared possibilities.</h2>
         <span class="company_cover_arch" aria-hidden="true"></span>
@@ -64,13 +65,15 @@
     </div>
     <div class="company_identity_panel">
       <div class="person_line">
-        <Company_logo id={company.id} size={64} />
+        <Company_logo id={company.id} src={image_url(company.logo_url)} size={64} />
         <div>
           <h1>{company.name}</h1>
           <p>{company.tagline}</p>
           <div class="company_meta">
-            <span class="workspace_badge">{company.sector}</span>
-            <span class="workspace_badge neutral">{company.location}</span>
+            <span class="workspace_badge">{company.industries[0]}</span>
+            <span class="workspace_badge neutral"
+              >{$location_label(company.hq_location_id)}</span
+            >
           </div>
         </div>
       </div>
@@ -99,8 +102,9 @@
           class:active={tab === key}
           aria-current={tab === key ? "page" : undefined}
           href={`?tab=${key}`}>{label}</a
-        >{/each}<a href={`/company/${company.id}/dashboard`}>Manage company ↗</a
-      >
+        >{/each}{#if company.viewer_role === "admin"}<a
+          href={`/company/${company.slug}/dashboard`}>Manage company ↗</a
+        >{/if}
     </nav>
     {#if tab === "jobs"}<form
         class="workspace_toolbar"
@@ -157,8 +161,8 @@
               /></label
             ><label class="field_label"
               >Currency<select class="field_input" bind:value={filters.currency}
-                ><option>INR</option><option>USD</option><option>GBP</option
-                ><option>EUR</option></select
+                >{#each $currency_options as code}<option>{code}</option
+                  >{/each}</select
               ></label
             ><label class="field_label"
               >Minimum annual salary<input
@@ -172,16 +176,14 @@
           <p class="work_note">Apply these options with Search.</p>
         </details>
       </form>
-      <p class="work_note">{results.length} sample roles at {company.name}</p>
+      <p class="work_note">
+        {loading ? "Loading…" : `Showing ${results.length} open ${results.length === 1 ? "position" : "positions"} at ${company.name}`}
+      </p>
       {#if results.length}<div class="results_jobs grid_view">
           {#each results as job}<Job_card {job} />{/each}
         </div>{:else}<Empty
-          title={company_jobs.length
-            ? "No roles match these filters."
-            : "A little quiet here, for now."}
-          text={company_jobs.length
-            ? "Try a broader search within this company."
-            : `${company.name} has no current openings in this preview.`}
+          title={any_jobs ? "No open jobs match your selected filters." : `${company.name} is not currently hiring.`}
+          text={any_jobs ? "Try a broader search within this company." : "Check back later for new openings!"}
           ><button
             class="button button_outline"
             on:click={() => {
@@ -191,28 +193,19 @@
           ></Empty
         >{/if}
     {:else if tab === "team"}<div class="workspace_panel">
-        <div class="panel_heading">
-          <h2>The people behind {company.name}</h2>
-          <span class="workspace_badge">Sample team</span>
-        </div>
-        {#if members.length}<div class="workspace_tiles">
-            {#each members as member}<div class="directory_card">
-                <span class="person_initials">{initials(member.name)}</span>
-                <h3>{member.name}</h3>
-                <p>{member.title}</p>
-                <span class="workspace_badge neutral">{member.department}</span>
-              </div>{/each}
-          </div>{:else}<Empty
-            title="Meet the team, soon."
-            text="Public team profiles have not been added yet."
-          />{/if}
+        <h2>The people behind {company.name}</h2>
+        <Empty
+          title="Meet the team, soon."
+          text="Public team profiles have not been added yet."
+        />
       </div>
     {:else}<div class="workspace_grid">
         <div class="workspace_stack">
           {#if tab === "overview"}<section class="workspace_panel">
               <span class="eyebrow_label">A LITTLE ABOUT US</span>
               <h2 style="margin-top:12px">{company.tagline}</h2>
-              <p>{company.description}</p>
+              <!-- render_markdown escapes all HTML before formatting -->
+              <div>{@html render_markdown(company.about)}</div>
             </section>{/if}
           {#if tab === "overview" || tab === "products"}<section
               class="workspace_panel"
@@ -224,13 +217,8 @@
               {#each company.products || [] as product}<div
                   class="workspace_hint"
                 >
-                  {#if product.image}<img
-                      class="product_image"
-                      src={product.image}
-                      alt={product.name}
-                    />{/if}
                   <h3>{product.name}</h3>
-                  <p>{product.description}</p>
+                  <p>{product.about}</p>
                   {#if product.url}<a
                       href={product.url}
                       target="_blank"
@@ -247,7 +235,7 @@
                     <span class="person_initials">✳</span>
                     <div>
                       <strong>{benefit.title}</strong>
-                      <p>{benefit.description}</p>
+                      <p>{benefit.details}</p>
                     </div>
                   </div>{:else}<p>Benefits have not been added yet.</p>{/each}
               </div>
@@ -255,12 +243,12 @@
           {#if tab === "overview"}<section class="workspace_panel">
               <h2>Where we work</h2>
               <div class="workspace_hint">
-                <strong>{company.location}</strong>
-                <p>{company.address || "Headquarters"}</p>
+                <strong>{$location_label(company.hq_location_id)}</strong>
+                <p>{company.hq_address || "Headquarters"}</p>
               </div>
-              {#if company.branches?.length}<p>
-                  Other offices: {company.branches
-                    .map(location_name)
+              {#if company.branch_location_ids.length}<p>
+                  Other offices: {company.branch_location_ids
+                    .map($location_label)
                     .join(", ")}
                 </p>{/if}
             </section>{/if}
@@ -269,7 +257,7 @@
           <section class="workspace_panel">
             <h2>Company at a glance</h2>
             <dl class="facts_list">
-              {#each [["Industry", company.domains || company.sector], ["Team size", company.size], ["Headquarters", company.location], ["Founded", company.founded || "Not provided"]] as [label, value]}<div
+              {#each [["Industry", company.industries.join(", ")], ["Team size", company.size], ["Headquarters", $location_label(company.hq_location_id)], ["Founded", company.founded_year || "Not provided"]] as [label, value]}<div
                 >
                   <dt>{label}</dt>
                   <dd>{value}</dd>
@@ -286,19 +274,15 @@
               >View company jobs ↗</a
             >
           </section>
-          {#if company.linkedin || company.social}<section
+          {#if Object.keys(company.social).length}<section
               class="workspace_panel"
             >
               <h2>Around the web</h2>
-              {#if company.linkedin}<a
-                  href={company.linkedin}
-                  target="_blank"
-                  rel="noreferrer">LinkedIn ↗</a
-                >{/if}{#if company.social}<p>
-                  <a href={company.social} target="_blank" rel="noreferrer"
-                    >Company social page ↗</a
+              {#each Object.entries(company.social) as [platform, link]}<p>
+                  <a href={link} target="_blank" rel="noreferrer noopener"
+                    >{social_labels[platform] || platform} ↗</a
                   >
-                </p>{/if}
+                </p>{/each}
             </section>{/if}
         </aside>
       </div>{/if}

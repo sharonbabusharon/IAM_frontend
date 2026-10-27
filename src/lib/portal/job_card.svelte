@@ -9,7 +9,7 @@
     toast,
   } from "./state.js";
   import { converted_salary } from "./currency.js";
-  import { location_name } from "./filter_options.js";
+  import { location_label, rates } from "./reference.js";
   import { skill_match } from "./membership_rules.js";
   import Company_logo from "./company_logo.svelte";
   import Icon from "./icon.svelte";
@@ -21,13 +21,16 @@
   let all_skills = false;
   let all_locations = false;
   let pending_skill = "";
-  $: company = job.company_name
-    ? { ...get_company(job.company), name: job.company_name }
-    : get_company(job.company);
+  // Live jobs carry their company name; unlinked ones may have none.
+  $: company = job.live
+    ? { name: job.company_name || "Confidential" }
+    : job.company_name
+      ? { ...get_company(job.company), name: job.company_name }
+      : get_company(job.company);
   $: target_currency = currency || $viewing_currency;
   $: match = skill_match(job, $profile.skills);
   $: locations = [
-    ...new Set((job.location_ids ?? job.locations ?? []).map(location_name)),
+    ...new Set((job.location_ids ?? job.locations ?? []).map($location_label)),
   ];
   $: owned = new Set($profile.skills.map((s) => s.toLowerCase()));
   function add_skill() {
@@ -131,10 +134,10 @@
       >{/if}
     <div class="job_card_bottom">
       <div>
-        <strong>{converted_salary(job, target_currency)}</strong><span
+        <strong>{converted_salary(job, target_currency, $rates)}</strong><span
           class="salary_note"
           >{target_currency !== job.currency && !job.salary_hidden
-            ? `Posted: ${converted_salary(job, job.currency)}`
+            ? `Posted: ${converted_salary(job, job.currency, $rates)}`
             : "Annual compensation"}</span
         >
       </div>

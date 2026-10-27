@@ -4,6 +4,7 @@
     premium_active,
     membership_open,
   } from "./membership_state.js";
+  import { currency_options } from "./reference.js";
   import { notice_periods } from "./filter_options.js";
   export let filters;
   export let scope = "search";
@@ -67,9 +68,9 @@
           aria-label="Preferred currency"
           bind:value={filters.currency}
           on:change={() => (filters.min_salary = 0)}
-          ><option>INR</option><option>USD</option><option>EUR</option><option
-            >GBP</option
-          ></select
+          >{#each $currency_options.includes(filters.currency) ? $currency_options : [filters.currency, ...$currency_options] as code}<option
+              >{code}</option
+            >{/each}</select
         ></label
       ><label class="field_label"
         ><span>Minimum / year</span><input
@@ -82,7 +83,7 @@
         /></label
       >
     </div>
-    <small>0 means any salary. Illustrative exchange rates.</small>
+    <small>0 means any salary. Converted at daily exchange rates.</small>
   </fieldset>
   <fieldset disabled={locked("min_match")}>
     <legend>Minimum skill match{locked("min_match") ? " · Premium" : ""}</legend

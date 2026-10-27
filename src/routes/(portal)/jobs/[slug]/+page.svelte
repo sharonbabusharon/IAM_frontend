@@ -1,52 +1,58 @@
 <script>
-  import { closed_job_ids } from "$lib/portal/workspace_state.js";
-  import { goto } from "$app/navigation";
+  import { goto, invalidateAll as invalidate_all } from "$app/navigation";
+  import { page } from "$app/stores";
   import Icon from "$lib/portal/icon.svelte";
   import Companion from "$lib/portal/companion.svelte";
   import Company_logo from "$lib/portal/company_logo.svelte";
-  import Job_card from "$lib/portal/job_card.svelte";
   import Modal from "$lib/portal/modal.svelte";
-  import { get_company, salary, jobs, posted } from "$lib/portal/data";
-  import {
-    saved_jobs,
-    toggle_saved,
-    applications,
-    toast,
-    viewing_currency,
-  } from "$lib/portal/state";
+  import { saved_jobs, toggle_saved, toast, viewing_currency } from "$lib/portal/state";
   import { converted_salary } from "$lib/portal/currency.js";
+  import { rates, location_label, currency_options } from "$lib/portal/reference.js";
+  import { render_markdown } from "$lib/portal/markdown.js";
+  import { jobs_api, to_card } from "$lib/portal/jobs_api.js";
+  import { image_url } from "$lib/portal/companies_api.js";
   export let data;
-  $: job = data.job;
-  $: company = get_company(job.company);
-  $: related = [
-    ...jobs.filter(
-      (item) =>
-        item.id !== job.id &&
-        !$closed_job_ids.includes(item.id) &&
-        item.category === job.category &&
-        !$applications.includes(item.id) &&
-        item.posted <= 30 &&
-        !item.unlisted,
-    ),
-    ...jobs.filter(
-      (item) =>
-        item.id !== job.id &&
-        !$closed_job_ids.includes(item.id) &&
-        item.category !== job.category &&
-        !$applications.includes(item.id) &&
-        item.posted <= 30 &&
-        !item.unlisted,
-    ),
-  ].slice(0, 2);
+  $: job = to_card(data.job, $location_label);
+  $: company = data.job.company; // linked paid jobs only (manual: none for free/unlinked)
+  $: company_name = company?.name || data.job.company_name || "Confidential";
+  $: open = data.job.status === "active";
+  $: applied_at = data.job.applied_at ? new Date(data.job.applied_at) : null;
+  $: places = data.job.location_ids.map($location_label);
+  $: share_url = data.job.share_hash
+    ? `${$page.url.origin}/jobs/share/${data.job.share_hash}`
+    : `${$page.url.origin}/jobs/${job.id}`;
   let report_dialog = false;
   let report_reason = "Information is inaccurate";
   let report_note = "";
-  let active_section = "overview";
-  function start_apply() {
-    goto(`/jobs/${job.id}/apply`);
-  }
+  let busy = false;
   async function share() {
-    goto(`/jobs/${job.id}/share`);
+    // Manual: native share sheet where available, otherwise copy the link.
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: job.title, url: share_url });
+        return;
+      } catch {
+        /* cancelled: fall back to copying */
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(share_url);
+      toast("Job link copied.");
+    } catch {
+      toast(share_url);
+    }
+  }
+  async function apply_external() {
+    window.open(data.job.external_url, "_blank", "noopener");
+    jobs_api.outbound(job.id); // referral tracking; the page opens regardless
+  }
+  async function manage(action) {
+    busy = true;
+    const result = await jobs_api[action](job.id);
+    busy = false;
+    if (!result.ok) return toast(result.error);
+    toast(action === "close" ? "Applications closed." : "Reposted for another 30 days.");
+    invalidate_all();
   }
   function submit_report() {
     report_dialog = false;
@@ -55,18 +61,15 @@
 </script>
 
 <svelte:head
-  ><title>{job.title} at {company.name} — Referise</title><meta
+  ><title>{job.title} at {company_name} — Referise</title><meta
     name="description"
-    content={`${job.title} at ${company.name}. ${salary(job)}. ${job.mode}. ${job.summary}`}
-  /><meta name="robots" content="noindex" /></svelte:head
+    content={`${job.title} at ${company_name}. ${converted_salary(job, "", $rates)}. ${job.mode}.`}
+  />{#if job.unlisted}<meta name="robots" content="noindex" />{/if}</svelte:head
 >
 <main id="main-content" class="detail_page">
   <div class="portal_container">
     <nav class="breadcrumbs" aria-label="Breadcrumb">
       <a href="/jobs"><Icon name="arrow-left" size={14} />All opportunities</a
-      ><span>/</span><a
-        href={`/jobs?category=${encodeURIComponent(job.category)}`}
-        >{job.category}</a
       ><span>/</span><span>{job.title}</span>
     </nav>
   </div>
@@ -75,13 +78,13 @@
     <div class="portal_container">
       <div class="detail_company_line">
         <div class="company_identity">
-          <Company_logo id={company.id} size={52} />
+          <Company_logo id={company?.slug ?? ""} src={image_url(company?.logo_url)} size={52} />
           <div>
             <span class="detail_company_name"
-              >{company.name}<span class="verified_company"
-                ><Icon name="shield" size={13} />Sample verified company</span
-              ></span
-            ><span class="job_posted">{company.sector} · {company.size}</span>
+              >{company_name}{#if company}<span class="verified_company"
+                  ><Icon name="shield" size={13} />Posted by an approved member</span
+                >{/if}</span
+            >{#if company}<span class="job_posted">{company.tagline} · {company.size}</span>{/if}
           </div>
         </div>
         <div class="detail_actions">
@@ -93,25 +96,24 @@
             ><Icon name="bookmark" size={15} />{$saved_jobs.includes(job.id)
               ? "Saved"
               : "Save role"}</button
-          ><button
-            class="icon_button"
-            aria-label="Share this opportunity"
-            on:click={share}><Icon name="share" size={18} /></button
+          ><button class="icon_button" aria-label="Share this opportunity" on:click={share}
+            ><Icon name="share" size={18} /></button
           >
         </div>
       </div>
       <div class="detail_title_line">
         <div>
           <h1>{job.title}<span>.</span></h1>
-          <p>{job.summary}</p>
+          {#if data.job.recruiter}<p>Posted by {data.job.recruiter.name}</p>{/if}
         </div>
         <span class="detail_tier"
-          >{job.tier} listing <Icon name="spark" size={12} /></span
+          >{job.unlisted ? "Direct-link listing" : "Premium listing"} <Icon name="spark" size={12} /></span
         >
       </div>
       <div class="detail_location">
         <span><Icon name="location" size={15} />{job.location}</span><span
-          class="green_dot_label"><span></span>{$closed_job_ids.includes(job.id) ? "Applications closed" : "Actively hiring"}</span
+          class="green_dot_label"
+          ><span></span>{open ? "Actively hiring" : data.job.status === "expired" ? "Listing expired" : "Applications closed"}</span
         ><span
           >Posted {job.posted === 0
             ? "today"
@@ -121,26 +123,18 @@
       <div class="job_facts_strip">
         <div>
           <Icon name="money" size={20} /><span
-            >COMPENSATION<strong
-              >{converted_salary(job, $viewing_currency)}</strong
-            ></span
+            >COMPENSATION<strong>{converted_salary(job, $viewing_currency, $rates)}</strong></span
           >
         </div>
         <div>
-          <Icon name="laptop" size={20} /><span
-            >WORK ARRANGEMENT<strong>{job.mode}</strong></span
-          >
+          <Icon name="laptop" size={20} /><span>WORK ARRANGEMENT<strong>{job.mode}</strong></span>
         </div>
         <div>
-          <Icon name="briefcase" size={20} /><span
-            >EMPLOYMENT TYPE<strong>{job.type}</strong></span
-          >
+          <Icon name="briefcase" size={20} /><span>EMPLOYMENT TYPE<strong>{job.type}</strong></span>
         </div>
         <div>
           <Icon name="chart" size={20} /><span
-            >EXPERIENCE REQUIRED<strong
-              >{job.experience_years}+ years · {job.level}</strong
-            ></span
+            >EXPERIENCE REQUIRED<strong>{job.experience_years}+ years</strong></span
           >
         </div>
       </div>
@@ -148,27 +142,14 @@
   </section>
   <div class="portal_container detail_grid">
     <article class="job_description">
-      <nav class="detail_tabs" aria-label="Job description sections">
-        {#each [{ id: "overview", label: "The opportunity" }, { id: "team", label: "Life at " + company.name }, { id: "hiring-process", label: "Hiring process" }] as section}<a
-            href={`#${section.id}`}
-            class:active={active_section === section.id}
-            on:click={() => (active_section = section.id)}>{section.label}</a
-          >{/each}
-      </nav>
       <section id="overview" class="description_section">
         <span class="eyebrow_label">A LITTLE ABOUT THE ROLE</span>
-        <h2>Make an impact.<br />Find room to grow.</h2>
-        <p>{company.description}</p>
-        <p>
-          We’re looking for a {job.title.toLowerCase()} who brings curiosity, care,
-          and a fresh perspective. You’ll have the space to take ownership of meaningful
-          work, the support of people who care about their craft, and a voice in what
-          we build next.
-        </p>
+        <!-- render_markdown escapes all HTML before formatting -->
+        <div>{@html render_markdown(data.job.description)}</div>
         <dl class="requirement_facts">
           <div>
             <dt>Notice periods accepted</dt>
-            <dd>{job.notice_periods.join(" · ")}</dd>
+            <dd>{job.notice_periods.join(" · ") || "Any"}</dd>
           </div>
           <div>
             <dt>Relocation support</dt>
@@ -176,11 +157,7 @@
           </div>
           <div>
             <dt>Interview rounds</dt>
-            <dd>{job.interview_rounds} rounds</dd>
-          </div>
-          <div>
-            <dt>Department</dt>
-            <dd>{job.category}</dd>
+            <dd>{job.interview_rounds}</dd>
           </div>
           <div>
             <dt>Application method</dt>
@@ -191,229 +168,135 @@
             <dd>
               {job.location_type === "world_remote"
                 ? "Worldwide remote"
-                : job.location}
+                : places.slice(0, 12).join(", ") + (places.length > 12 ? ` and ${places.length - 12} more` : "")}
             </dd>
           </div>
         </dl>
-        <label class="field_label"
-          >View salary in<select
-            class="field_input"
-            style="max-width: 150px"
-            bind:value={$viewing_currency}
-            ><option>INR</option><option>USD</option><option>GBP</option><option
-              >EUR</option
-            ></select
-          ><small>Illustrative exchange rates for this preview.</small></label
-        >
-        <h3>What you’ll do</h3>
-        <ul class="description_list">
-          {#each job.responsibilities as responsibility}<li>
-              {responsibility}
-            </li>{/each}
-        </ul>
-        <h3>What you’ll bring</h3>
-        <ul class="description_list">
-          {#each job.requirements as requirement}<li>{requirement}</li>{/each}
-        </ul>
-        <div class="encouragement_note">
-          <Icon name="spark" size={21} />
-          <div>
-            <strong>You don’t have to tick every box.</strong>
-            <p>
-              If the work excites you and you see a place for your experience
-              here, we’d love you to explore it. Different paths bring different
-              strengths.
-            </p>
-          </div>
-        </div>
+        {#if !job.salary_hidden}<label class="field_label"
+            >View salary in<select
+              class="field_input"
+              style="max-width: 150px"
+              bind:value={$viewing_currency}
+              >{#each $currency_options as code}<option>{code}</option>{/each}</select
+            ><small>Converted with today’s exchange rates.</small></label
+          >{/if}
       </section>
-      <section id="team" class="description_section">
-        <span class="eyebrow_label">THE PEOPLE BEHIND THE WORK</span>
-        <h2>Good work. Good company.</h2>
-        <p>
-          We’re a team of thoughtful people who believe in doing ambitious work
-          at a sustainable pace. We share ideas early, give useful feedback, and
-          make time to learn from each other.
-        </p>
-        <div class="benefits_grid">
-          {#each [{ icon: "sun", title: "Space for life", text: "Flexible hours and time to recharge." }, { icon: "globe", title: "Work that fits", text: job.mode === "Remote" ? "A team connected across locations." : "A thoughtful " + job.mode.toLowerCase() + " working rhythm." }, { icon: "chart", title: "Room to grow", text: "A learning budget and regular feedback." }, { icon: "heart", title: "Care that counts", text: "Support for your health and wellbeing." }] as benefit}<div
-            >
-              <Icon name={benefit.icon} size={20} /><strong
-                >{benefit.title}</strong
-              >
-              <p>{benefit.text}</p>
-            </div>{/each}
-        </div>
-        <p class="description_small">
-          Benefits shown are illustrative and will be confirmed by the employer
-          when live roles are available.
-        </p>
-      </section>
-      <section id="hiring-process" class="description_section">
-        <span class="eyebrow_label">KNOW WHAT COMES NEXT</span>
-        <h2>A conversation, step by step.</h2>
-        <p>
-          A good hiring experience should feel like a two-way conversation.
-          Here’s the planned process for this sample role.
-        </p>
-        <ol class="hiring_steps">
-          {#each [{ title: "A first conversation", time: "30 minutes", text: "Meet the team, talk about your experience, and ask your first questions." }, { title: "A closer look at your work", time: "60 minutes", text: "Walk us through a project and the thinking behind your decisions." }, { title: "Meet your future collaborators", time: "45 minutes", text: "Get to know the people you’d work with and how the team makes decisions." }, { title: "A clear next step", time: "The final conversation", text: "Discuss the opportunity, compensation, and what joining the team could look like." }].slice(0, job.interview_rounds) as step, i}<li
-            >
-              <span class="step_number">0{i + 1}</span>
-              <div>
-                <h3>{step.title}<span>{step.time}</span></h3>
-                <p>{step.text}</p>
-              </div>
-            </li>{/each}
-        </ol>
-      </section>
+      {#if data.job.interview_stages.length}<section id="hiring-process" class="description_section">
+          <span class="eyebrow_label">KNOW WHAT COMES NEXT</span>
+          <h2>A conversation, step by step.</h2>
+          <ol class="hiring_steps">
+            {#each data.job.interview_stages as stage, i}<li>
+                <span class="step_number">{String(i + 1).padStart(2, "0")}</span>
+                <div><h3>{stage}</h3></div>
+              </li>{/each}
+          </ol>
+        </section>{/if}
       <section class="apply_section" id="apply">
         <div>
           <span class="eyebrow_label">SEE YOURSELF HERE?</span>
           <h2>Let’s open that door.</h2>
           <p>Your experience could be the start of something good.</p>
         </div>
-        <button
-          class="button button_terracotta"
-          on:click={start_apply}
-          disabled={$closed_job_ids.includes(job.id) ||
-            $applications.includes(job.id)}
-          ><Icon
-            name={$applications.includes(job.id) ? "check" : "arrow-up-right"}
-            size={17}
-          />{$closed_job_ids.includes(job.id)
-            ? "Applications closed"
-            : $applications.includes(job.id)
-              ? "Applied in preview"
-              : "Apply for this role"}</button
-        ><span class="apply_footnote"
-          ><Icon name="lock" size={12} />This is a preview. No application is
-          sent to an employer.</span
-        >
+        {#if applied_at}<button class="button button_terracotta" disabled
+            ><Icon name="check" size={17} />Applied on {applied_at.toLocaleDateString("en-IN")}</button
+          >{:else if !open}<button class="button button_terracotta" disabled
+            >Applications closed</button
+          >{:else if job.application === "External"}<button
+            class="button button_terracotta"
+            on:click={apply_external}
+            ><Icon name="arrow-up-right" size={17} />Apply on the company’s site</button
+          >{:else}<button class="button button_terracotta" on:click={() => goto(`/jobs/${job.id}/apply`)}
+            ><Icon name="arrow-up-right" size={17} />Apply for this role</button
+          >{/if}
       </section>
       <div class="report_row">
-        <span>Something doesn’t look right?</span><button
-          on:click={() => (report_dialog = true)}
+        <span>Something doesn’t look right?</span><button on:click={() => (report_dialog = true)}
           >Report this listing <Icon name="arrow-up-right" size={12} /></button
         >
       </div>
     </article>
     <aside class="detail_sidebar">
-      <section class="detail_company_card">
-        <div class="sidebar_card_label">MEET YOUR NEXT TEAM</div>
-        <Company_logo id={company.id} size={55} />
-        <h2>{company.name}</h2>
-        <p>{company.description}</p>
-        <dl>
-          <div>
-            <dt><Icon name="users" size={15} />Team size</dt>
-            <dd>{company.size}</dd>
+      {#if data.job.analytics}<section class="hiring_activity_card">
+          <div class="activity_heading">
+            <Icon name="chart" size={18} />
+            <h3>Your listing</h3>
           </div>
-          <div>
-            <dt><Icon name="building" size={15} />Founded</dt>
-            <dd>{company.founded}</dd>
+          <div class="hiring_metrics">
+            <div><strong>{data.job.analytics.views}</strong><span>Views</span></div>
+            <div><strong>{data.job.analytics.applications}</strong><span>Applications</span></div>
+            {#if job.application === "Easy apply"}<div>
+                <strong>{data.job.analytics.high_fit ?? 0}</strong><span>70%+ match</span>
+              </div>
+              <div>
+                <strong>{data.job.analytics.recruiter_actions ?? 0}</strong><span>Recruiter actions</span>
+              </div>{:else}<div>
+                <strong>{data.job.analytics.outbound_clicks}</strong><span>Apply clicks</span>
+              </div>{/if}
           </div>
-          <div>
-            <dt><Icon name="globe" size={15} />Industry</dt>
-            <dd>{company.sector}</dd>
+          <p class="small_text">
+            {open ? `${data.job.analytics.expires_in_days} days left in the 30-day listing window.` : "Not visible to candidates."}
+          </p>
+          <div class="workspace_actions">
+            {#if open}<button class="button button_outline button_small" disabled={busy} on:click={() => manage("close")}
+                >Close applications</button
+              >{:else}<button class="button button_dark button_small" disabled={busy} on:click={() => manage("repost")}
+                >Repost for 30 days</button
+              >{/if}<a class="button button_outline button_small" href={`/recruiter/post-job?edit=${job.id}`}>Edit</a>
           </div>
-        </dl>
-        <a
-          href={`/company/${company.id}`}
-          class="button button_outline button_full"
-          >More roles at {company.name}<Icon
-            name="arrow-up-right"
-            size={15}
-          /></a
-        >
-      </section>
+          {#if job.unlisted}<p class="small_text">
+              Free jobs are unlisted. Share this link: <code>{share_url}</code>
+            </p>{/if}
+        </section>{/if}
+      {#if company}<section class="detail_company_card">
+          <div class="sidebar_card_label">MEET YOUR NEXT TEAM</div>
+          <Company_logo id={company.slug} src={image_url(company.logo_url)} size={55} />
+          <h2>{company.name}</h2>
+          <p>{company.tagline}</p>
+          <dl>
+            <div>
+              <dt><Icon name="users" size={15} />Team size</dt>
+              <dd>{company.size}</dd>
+            </div>
+          </dl>
+          <a href={`/company/${company.slug}?tab=jobs`} class="button button_outline button_full"
+            >More roles at {company.name}<Icon name="arrow-up-right" size={15} /></a
+          >
+        </section>{:else}<section class="detail_company_card">
+          <div class="sidebar_card_label">KEEP EXPLORING</div>
+          <h2>Find more opportunities.</h2>
+          <p>
+            Find more exciting job opportunities on our platform. Sign in or create
+            an account to explore roles that fit you.
+          </p>
+          <a href="/jobs" class="button button_outline button_full"
+            >Explore jobs<Icon name="arrow-up-right" size={15} /></a
+          >
+        </section>{/if}
       <section class="detail_skills_card">
         <span class="eyebrow_label">THE CRAFT YOU’LL BRING</span>
         <div class="skill_chips">
-          {#each job.skills as skill}<a
-              href={`/jobs?q=${encodeURIComponent(skill)}`}>{skill}</a
-            >{/each}
-        </div>
-      </section>
-      <section class="hiring_activity_card">
-        <div class="activity_heading">
-          <Icon name="chart" size={18} />
-          <h3>Behind the opportunity</h3>
-        </div>
-        <p>A little visibility into the hiring journey.</p>
-        <div class="hiring_metrics">
-          <div><strong>{job.views}</strong><span>Role views</span></div>
-          {#if job.application === "Easy apply"}<div>
-              <strong>{job.applicants}</strong><span>Applications</span>
-            </div>
-            <div
-              title="Application views, rejections, holds, résumé views and shortlists"
-            >
-              <strong>{job.recruiter_actions}</strong><span
-                >Recruiter actions</span
-              >
-            </div>{:else}<div>
-              <strong>{job.apply_clicks}</strong><span>Apply clicks</span>
-            </div>{/if}
-        </div>
-        {#if job.tier === "Premium" && job.application === "Easy apply"}<p
-            class="small_text"
-          >
-            Applications above 70% match: unavailable until AI matching is
-            connected.
-          </p>{/if}
-        <div class="activity_progress"><span></span></div>
-        <div class="activity_caption">
-          <span>Illustrative hiring activity</span><Icon
-            name="info"
-            size={12}
-          />
+          {#each job.skills as skill}<a href={`/jobs?skill=${encodeURIComponent(skill)}`}>{skill}</a>{/each}
         </div>
       </section>
       <div class="detail_fairness_note">
         <Companion kind="sage" size={90} />
         <p>
-          Good work starts with a fair chance.<br /><strong
-            >Your potential belongs here.</strong
-          >
+          Good work starts with a fair chance.<br /><strong>Your potential belongs here.</strong>
         </p>
       </div>
     </aside>
   </div>
-  <section class="related_section">
-    <div class="portal_container">
-      <div class="section_heading">
-        <div>
-          <span class="eyebrow_label">KEEP A FEW DOORS OPEN</span>
-          <h2>A little more possibility.</h2>
-        </div>
-        <a class="text_link" href="/jobs"
-          >All opportunities <Icon name="arrow-right" size={16} /></a
-        >
-      </div>
-      <div class="related_grid">
-        {#each related as relatedJob}<Job_card
-            job={relatedJob}
-            compact
-          />{/each}
-      </div>
-    </div>
-  </section>
 </main>
-{#if report_dialog}<Modal
-    title="Help keep things clear."
-    on:close={() => (report_dialog = false)}
+{#if report_dialog}<Modal title="Help keep things clear." on:close={() => (report_dialog = false)}
     ><form on:submit|preventDefault={submit_report}>
       <p class="modal_description">
         Tell us what needs a closer look. This preview does not submit a report.
       </p>
       <label class="field_label"
         >Reason<select class="field_input" bind:value={report_reason}
-          ><option>Information is inaccurate</option><option
-            >Compensation is unclear</option
-          ><option>The role is no longer available</option><option
-            >Something else</option
-          ></select
+          ><option>Information is inaccurate</option><option>Compensation is unclear</option><option
+            >The role is no longer available</option
+          ><option>Something else</option></select
         ></label
       ><label class="field_label report_note"
         >Anything else we should know?<textarea

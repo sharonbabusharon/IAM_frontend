@@ -15,14 +15,31 @@
   import Icon from "./icon.svelte";
   import Modal from "./modal.svelte";
   import { toast } from "./state.js";
+  import { onMount as on_mount } from "svelte";
+  import { jobs_api } from "./jobs_api.js";
   export let section = "overview";
+  // Live: your posted jobs (last 60 days) and saved drafts.
+  let live_jobs = [];
+  let drafts = [];
+  let jobs_error = "";
+  const capital = (s) => s[0].toUpperCase() + s.slice(1);
+  async function load_jobs() {
+    const [mine, saved] = await Promise.all([jobs_api.mine(), jobs_api.drafts()]);
+    jobs_error = mine.ok ? "" : mine.status === 401 ? "Sign in to see your jobs." : mine.error;
+    live_jobs = mine.ok ? mine.data.map((j) => ({ ...j, status: capital(j.status) })) : [];
+    drafts = saved.ok
+      ? saved.data.map((d) => ({ id: d.id, draft: true, title: d.form.title || "Untitled draft", tier: d.form.tier || "Free",
+          company_name: d.form.company_name || "", status: "Draft", applications: 0, views: 0 }))
+      : [];
+  }
+  on_mount(load_jobs);
   let status = $page.url.searchParams.get("status") || "All";
   let query = "";
   let stage = "All";
   let selected_job = $page.url.searchParams.get("job") || "";
   let candidate = null;
   let closing = null;
-  $: listed = $recruitment_jobs.filter(
+  $: listed = [...drafts, ...live_jobs].filter(
     (j) =>
       (status === "All" || j.status === status) &&
       j.title.toLowerCase().includes(query.toLowerCase()),
@@ -41,12 +58,18 @@
     );
     toast("Candidate stage updated in this preview. No message sent.");
   }
-  function close_job() {
-    recruitment_jobs.update((items) =>
-      items.map((j) => (j.id === closing.id ? { ...j, status: "Closed" } : j)),
-    );
+  async function close_job() {
+    const result = await jobs_api.close(closing.id);
     closing = null;
-    toast("Job closed in the local preview.");
+    if (!result.ok) return toast(result.error);
+    toast("Applications closed.");
+    load_jobs();
+  }
+  async function repost(job) {
+    const result = await jobs_api.repost(job.id);
+    if (!result.ok) return toast(result.error);
+    toast("Reposted for another 30 days.");
+    load_jobs();
   }
 </script>
 
@@ -96,7 +119,7 @@
     </aside>
     <div class="workspace_main">
       {#if section === "overview"}<div class="stat_grid">
-          {#each [[$recruitment_jobs.filter((j) => j.status === "Active").length, "Active roles"], [$recruitment_jobs.filter((j) => j.status === "Draft").length, "Drafts"], [$candidate_records.length, "Sample applicants"], [$candidate_records.filter((c) => c.stage === "Interview").length, "At interview"]] as [value, label], i}<div
+          {#each [[live_jobs.filter((j) => j.status === "Active").length, "Active roles"], [drafts.length, "Drafts"], [$candidate_records.length, "Sample applicants"], [$candidate_records.filter((c) => c.stage === "Interview").length, "At interview"]] as [value, label], i}<div
               class="stat_card"
               class:featured={i === 0}
             >
@@ -147,13 +170,14 @@
             placeholder="Search job title"
             bind:value={query}
           /><select aria-label="Job status" bind:value={status}
-            >{#each ["All", "Active", "Draft", "Preview", "Closed"] as value}<option
+            >{#each ["All", "Active", "Draft", "Closed", "Expired"] as value}<option
                 >{value}</option
               >{/each}</select
           ><a class="button button_dark" href="/recruiter/post-job"
             >Post a job +</a
           >
         </div>
+        {#if jobs_error}<p class="workspace_hint warning">{jobs_error}</p>{/if}
         <section class="workspace_panel">
           <div class="panel_heading">
             <h2>Your job posts</h2>
@@ -172,9 +196,7 @@
                       ><td data-label="Role"
                         ><div class="table_cell_value">
                           <strong>{job.title || "Untitled draft"}</strong><small
-                            >{job.tier} · {job.company_name ||
-                              $company_records.find((c) => c.id === job.company)
-                                ?.name ||
+                            >{job.tier === "Premium" ? "Paid" : job.tier} · {job.company_name ||
                               "Confidential"}</small
                           >
                         </div></td
@@ -189,7 +211,7 @@
                       ><td data-label="Applications"
                         ><div class="table_cell_value">
                           <a href={`/recruiter/applicants?job=${job.id}`}
-                            >{job.applicants || 0} ↗</a
+                            >{job.applications || 0} ↗</a
                           >
                         </div></td
                       ><td data-label="Views"
@@ -200,15 +222,16 @@
                         ><div class="table_cell_value">
                           <a
                             class="text_action"
-                            href={`/recruiter/post-job?edit=${job.id}`}>Edit</a
-                          >
-                          <a
-                            href={job.id.startsWith("draft-")
-                              ? `/recruiter/jobs/${job.id}`
-                              : `/jobs/${job.id}`}>View</a
-                          >{#if job.status === "Active" || job.status === "Preview"}<button
+                            href={job.draft
+                              ? `/recruiter/post-job?draft=${job.id}`
+                              : `/recruiter/post-job?edit=${job.id}`}
+                            >{job.draft ? "Continue" : "Edit"}</a
+                          >{#if !job.draft}<a href={`/jobs/${job.id}`}>View</a>{/if}{#if job.status === "Active"}<button
                               class="text_action"
                               on:click={() => (closing = job)}>Close</button
+                            >{:else if !job.draft}<button
+                              class="text_action"
+                              on:click={() => repost(job)}>Repost</button
                             >{/if}
                         </div></td
                       ></tr
@@ -390,14 +413,14 @@
   >{/if}
 {#if closing}<Modal title="Close this job?" on:close={() => (closing = null)}
     ><p>
-      {closing.title} will stop accepting applications in this local preview. Existing
-      applicant records stay in your workspace.
+      {closing.title} will stop accepting applications and leave search. You
+      can repost it later for another 30 days.
     </p>
     <div class="form_actions">
       <button class="button button_outline" on:click={() => (closing = null)}
         >Keep open</button
       ><button class="button button_dark" on:click={close_job}
-        >Close preview job</button
+        >Close job</button
       >
     </div></Modal
   >{/if}

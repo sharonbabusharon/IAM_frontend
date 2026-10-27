@@ -12,6 +12,14 @@
     membership_open,
   } from "./membership_state.js";
   export let user = null;
+  export let companies = [];
+  // "My company": the first company you belong to (admins first, so their
+  // dashboard); none yet means create one.
+  $: my_company = companies[0]
+    ? companies[0].role === "admin"
+      ? `/company/${companies[0].slug}/dashboard`
+      : `/company/${companies[0].slug}`
+    : "/company/create";
   let menu_open = false;
   $: sign_in_href = "/login?next=" + encodeURIComponent($page.url.pathname + $page.url.search);
   async function sign_out() {
@@ -24,7 +32,7 @@
     goto("/");
   }
   let nav_root;
-  const groups = [
+  $: groups = [
     {
       name: "Career",
       links: [
@@ -47,7 +55,7 @@
       links: [
         ["Explore companies", "/companies"],
         ["Create a company", "/company/create"],
-        ["My company", "/company/forma/dashboard"],
+        ["My company", my_company],
       ],
     },
     {
@@ -123,7 +131,7 @@
           >{user.name || user.email}</a
         ><button class="unified_signin" type="button" on:click={sign_out}
           >Sign out</button
-        >{:else if !$preview_account.enabled}<a class="unified_signin" href={sign_in_href}>Sign in</a>{/if}<a
+        >{:else}<a class="unified_signin" href={sign_in_href}>Sign in</a>{/if}<a
         class="unified_post"
         href="/recruiter/post-job">Post a job <Icon name="plus" size={16} /></a
       >

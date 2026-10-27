@@ -1,6 +1,7 @@
 <script>
   import { onDestroy as on_destroy } from "svelte";
   import { profile, toast } from "./state.js";
+  import { profile_api, to_store } from "./profile_api.js";
   import Modal from "./modal.svelte";
   export let premium = false;
   export let readonly = false;
@@ -33,8 +34,13 @@
   on_destroy(() => {
     if (image_url) URL.revokeObjectURL(image_url);
   });
-  function save() {
-    if (!image_element?.complete || !image_element.naturalWidth) return;
+  let uploading = false;
+  async function save() {
+    if (!image_element?.complete || !image_element.naturalWidth || uploading) return;
+    if (!$profile.saved) {
+      error = "Save your profile once, then add a photo.";
+      return;
+    }
     const canvas = document.createElement("canvas");
     canvas.width = 256;
     canvas.height = 256;
@@ -52,12 +58,16 @@
       256,
       256,
     );
-    profile.update((p) => ({
-      ...p,
-      photo: canvas.toDataURL("image/jpeg", 0.88),
-    }));
+    uploading = true;
+    const result = await profile_api.upload_photo(canvas.toDataURL("image/jpeg", 0.88));
+    uploading = false;
+    if (!result.ok) {
+      error = result.error;
+      return;
+    }
+    profile.set(to_store(result.data));
     close();
-    toast("Profile photo updated in this browser.");
+    toast("Profile photo updated.");
   }
 </script>
 

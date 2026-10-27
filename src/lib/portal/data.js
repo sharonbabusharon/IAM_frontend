@@ -415,12 +415,13 @@ const job_fixtures = [
     ],
   },
 ];
+// GeoNames ids, matching the published location tree (reference.js).
 const city_ids = {
-  "Bengaluru, India": "in-blr",
-  "Mumbai, India": "in-bom",
-  "Hyderabad, India": "in-hyd",
-  "London, United Kingdom": "gb-lon",
-  "New York, United States": "us-nyc",
+  "Bengaluru, India": "1277333",
+  "Mumbai, India": "1275339",
+  "Hyderabad, India": "1269843",
+  "London, United Kingdom": "2643743",
+  "New York, United States": "5128581",
 };
 export const jobs = job_fixtures.map((job, index) => ({
   ...job,
@@ -429,7 +430,7 @@ export const jobs = job_fixtures.map((job, index) => ({
   location_type: job.location === "Worldwide" ? "world_remote" : "specific",
   location_ids:
     index === 2
-      ? ["in-bom", "in-blr"]
+      ? ["1275339", "1277333"]
       : city_ids[job.location]
         ? [city_ids[job.location]]
         : [],
@@ -484,7 +485,7 @@ export const default_profile = {
   is_serving_notice: false,
   last_working_date: "",
   work_types: ["Full-time", "Contract"],
-  preferred_locations: ["in-blr"],
+  preferred_locations: ["1277333"],
   open_to_remote: true,
   relocation: "",
   about_updated: "",
@@ -548,6 +549,9 @@ export function get_company(id) {
 }
 export function salary(job) {
   if (job.salary_hidden || job.salary_max == null) return "Competitive";
+  // Posted jobs give only a maximum (manual: "Up to [currency] [max]").
+  if (job.salary_min == null)
+    return `Up to ${new Intl.NumberFormat("en", { style: "currency", currency: job.currency, maximumFractionDigits: 0 }).format(job.salary_max)} / year`;
   if (job.currency === "INR")
     return `₹${job.salary_min / 100000}–${job.salary_max / 100000} LPA`;
   return `${job.currency === "USD" ? "$" : "£"}${job.salary_min / 1000}k–${job.salary_max / 1000}k / year`;

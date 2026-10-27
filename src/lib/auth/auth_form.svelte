@@ -58,6 +58,15 @@
       ></button
     >{/each}
 </div>
+<p class="sso_help">
+  {#if signup}Already have an account? <a
+      href={"/login" + (next ? "?next=" + encodeURIComponent(next) : "")}
+      >Sign in</a
+    >{:else}New to Referise? <a
+      href={"/signup" + (next ? "?next=" + encodeURIComponent(next) : "")}
+      >Create an account</a
+    >{/if}
+</p>
 <p class="sso_terms">
   By continuing, you agree to our <a href="/terms">Terms & conditions</a> and
   <a href="/privacy">Privacy policy</a>.

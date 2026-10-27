@@ -1,41 +1,118 @@
 <script>
   import { keep_active_visible } from "$lib/portal/keep_active_visible.js";
   import { page } from "$app/stores";
+  import { goto } from "$app/navigation";
+  import { onMount as on_mount } from "svelte";
+  import { companies_api, role_labels } from "./companies_api.js";
   import {
-    company_records,
     team_members,
     recruitment_jobs,
     wallet_transactions,
-    preview_role,
     inr,
     initials,
     download_csv,
   } from "./workspace_state.js";
-  import { toast, profile } from "./state.js";
+  import { toast } from "./state.js";
   import Heading from "./page_heading.svelte";
   import Notice from "./preview_notice.svelte";
   import Empty from "./empty_state.svelte";
   import Icon from "./icon.svelte";
   import Modal from "./modal.svelte";
   export let section = "overview";
-  let member_tab = "Current";
+  let member_status = "current";
   let member_query = "";
   let editing_member = null;
-  let limit = 0;
-  let cap_type = "Monthly";
-  let role = "Employee";
+  let role = "employee";
   let action_error = "";
   let topup = false;
   let amount = 5000;
   let payment_review = false;
   let offboard_member = null;
-  let invite = false;
-  let invite_email = "";
-  let invite_role = "HR / Recruiter";
-  let invite_saved = false;
+  let leaving = false;
   let date_range = "7";
-  $: company = $company_records.find((c) => c.id === $page.params.slug);
+  // Live: the company, its overview counts and its members (admins only).
+  let company = null;
+  let stats = null;
+  let access = "loading"; // loading | admin | denied | missing | error
+  let live_members = [];
+  let members_loading = false;
   $: base = `/company/${$page.params.slug}/dashboard`;
+  on_mount(load);
+  async function load() {
+    const found = await companies_api.get($page.params.slug);
+    if (!found.ok) {
+      access = found.status === 404 ? "missing" : "error";
+      return;
+    }
+    company = found.data;
+    if (company.viewer_role !== "admin") {
+      access = "denied";
+      return;
+    }
+    const overview = await companies_api.dashboard(company.slug);
+    if (!overview.ok) {
+      access = overview.status === 403 ? "denied" : "error";
+      return;
+    }
+    stats = overview.data;
+    access = "admin";
+  }
+  $: if (access === "admin" && section === "employees") load_members(member_status);
+  async function load_members(status) {
+    members_loading = true;
+    const result = await companies_api.members(company.slug, status);
+    members_loading = false;
+    if (result.ok) live_members = result.data;
+    else toast(result.error);
+  }
+  $: shown_members = live_members.filter((m) =>
+    `${m.name} ${m.title} ${m.email}`.toLowerCase().includes(member_query.toLowerCase()),
+  );
+  async function after_change(message) {
+    toast(message);
+    await Promise.all([load_members(member_status), refresh_stats()]);
+  }
+  async function refresh_stats() {
+    const overview = await companies_api.dashboard(company.slug);
+    if (overview.ok) stats = overview.data;
+  }
+  async function decide(member, approve) {
+    const result = await companies_api.decide(company.slug, member.user_id, approve);
+    if (!result.ok) return toast(result.error);
+    after_change(approve ? `${member.name} is now part of your team.` : "Request declined.");
+  }
+  async function save_role() {
+    const result = await companies_api.set_role(company.slug, editing_member.user_id, role);
+    if (!result.ok) {
+      action_error = result.error;
+      return;
+    }
+    const name = editing_member.name;
+    editing_member = null;
+    after_change(`${name} is now ${role_labels[role]}.`);
+  }
+  async function confirm_offboard() {
+    const result = await companies_api.offboard(company.slug, offboard_member.user_id);
+    if (!result.ok) {
+      action_error = result.error;
+      return;
+    }
+    const name = offboard_member.name;
+    offboard_member = null;
+    after_change(`${name} moved to past employees.`);
+  }
+  async function leave() {
+    const result = await companies_api.leave(company.slug);
+    if (!result.ok) {
+      action_error = result.error;
+      return;
+    }
+    leaving = false;
+    toast(`You have left ${company.name}.`);
+    goto("/companies");
+  }
+  // Sample data for the preview sections (wallet, analytics, workforce)
+  // until the payments section builds them.
   $: members = $team_members.filter((m) => m.company === $page.params.slug);
   $: current = members.filter((m) => m.status === "Current");
   $: pending = members.filter((m) => m.status === "Pending");
@@ -64,102 +141,6 @@
     ["hierarchy", "Workforce", "building", `${base}/hierarchy`],
     ["wallet", "Wallet & billing", "money", `${base}/wallet`],
   ];
-  function review_member(member) {
-    editing_member = member;
-    limit = member.limit;
-    cap_type = member.cap_type;
-    role = member.role;
-    action_error = "";
-  }
-  function save_member() {
-    if (
-      role !== "Company Admin" &&
-      editing_member.role === "Company Admin" &&
-      admins.length === 1
-    ) {
-      action_error =
-        "Assign another company admin before changing the sole admin’s role.";
-      return;
-    }
-    if (!Number.isFinite(limit) || limit < editing_member.spent) {
-      action_error = "The limit cannot be lower than the amount already spent.";
-      return;
-    }
-    if (
-      limit - editing_member.spent >
-      Math.max(
-        0,
-        wallet -
-          allocated +
-          Math.max(0, editing_member.limit - editing_member.spent),
-      )
-    ) {
-      action_error = "This limit exceeds the unallocated wallet balance.";
-      return;
-    }
-    team_members.update((items) =>
-      items.map((m) =>
-        m.id === editing_member.id ? { ...m, limit, cap_type, role } : m,
-      ),
-    );
-    editing_member = null;
-    toast("Team permissions and budget updated in this preview.");
-  }
-  function claim(member, status) {
-    if (member.signature) {
-      const e = $profile.experiences[member.profile_entry];
-      if (
-        !e ||
-        member.signature !==
-          JSON.stringify([
-            e.company,
-            e.title,
-            e.type,
-            e.start,
-            e.end,
-            e.current,
-            e.description,
-          ])
-      ) {
-        toast(
-          "This experience changed. Ask the candidate to request a fresh review.",
-        );
-        return;
-      }
-    }
-    if (member.profile_entry !== undefined)
-      profile.update((p) => ({
-        ...p,
-        experiences: p.experiences.map((entry, i) =>
-          i === member.profile_entry
-            ? {
-                ...entry,
-                verification: status === "Current" ? "Verified" : "Rejected",
-              }
-            : entry,
-        ),
-      }));
-    team_members.update((items) =>
-      items.map((m) => (m.id === member.id ? { ...m, status, limit: 0 } : m)),
-    );
-    toast(
-      `Employment claim ${status === "Current" ? "approved" : "rejected"} in this preview. No notification sent.`,
-    );
-  }
-  function offboard() {
-    if (offboard_member.role === "Company Admin" && admins.length === 1) {
-      action_error =
-        "The sole admin must appoint another admin before leaving.";
-      return;
-    }
-    team_members.update((items) =>
-      items.map((m) =>
-        m.id === offboard_member.id ? { ...m, status: "Past", limit: 0 } : m,
-      ),
-    );
-    offboard_member = null;
-    toast("Member moved to past employees. Unused allocation released.");
-  }
   function export_ledger() {
     download_csv(
       "referise-preview-transactions.csv",
@@ -206,7 +187,7 @@
     companion="sage"
   />
   <Notice
-    text="Company admin design preview · Sample records and local actions only."
+    text="Overview and employees are live. Wallet, analytics and workforce still show sample data."
   />
   <div class="workspace_shell">
     <aside class="workspace_sidenav" use:keep_active_visible={section}>
@@ -216,9 +197,9 @@
           aria-current={section === key ? "page" : undefined}
           ><Icon name={icon} size={17} />{label}</a
         >{/each}<span>MAKE YOUR NEXT MOVE</span><a
-        href={`/company/${company?.id}`}
+        href={`/company/${$page.params.slug}`}
         ><Icon name="eye" size={17} />Public company page</a
-      ><a href={`/company/${company?.id}/edit`}
+      ><a href={`/company/${$page.params.slug}/edit`}
         ><Icon name="edit" size={17} />Edit company</a
       ><a href="/recruiter"
         ><Icon name="briefcase" size={17} />Hiring workspace</a
@@ -228,29 +209,25 @@
       <div class="panel_heading workspace_role_switch">
         <span class="workspace_badge"
           >{company?.name || "Company not found"}</span
-        ><label class="inline_fields preview_role_field"
-          >Preview as <select class="field_input" bind:value={$preview_role}
-            ><option>Company Admin</option><option>HR / Recruiter</option
-            ><option>Candidate</option></select
-          ></label
         >
       </div>
-      {#if !company}<Empty
+      {#if access === "loading"}<p class="workspace_hint">Loading…</p>
+      {:else if access === "missing"}<Empty
           title="Company not found."
           text="Choose a company from the directory."
-        />
-      {:else if $preview_role !== "Company Admin"}<Empty
-          title="This space belongs to company admins."
-          text="Your current preview role cannot manage company funds or employee records."
-          ><button
-            class="button button_dark"
-            on:click={() => preview_role.set("Company Admin")}
-            >Preview company admin</button
-          ></Empty
+          ><a class="button button_dark" href="/companies">Explore companies</a></Empty
         >
+      {:else if access === "error"}<Empty
+          title="This page couldn’t load."
+          text="Check your connection and try again."
+        />
+      {:else if access === "denied"}<Empty
+          title="This space belongs to company admins."
+          text="Ask an admin of this company to give you admin access."
+        />
       {:else if section === "overview"}
         <div class="stat_grid">
-          {#each [[inr(wallet), "Wallet balance", "Available company credits"], [inr(spent), "Spent this month", "Sample October activity"], [company_jobs.filter((j) => j.status === "Active").length, "Active jobs", `${company_jobs.length} total posts`], [current.length, "Current team", `${pending.length} pending claims`]] as [value, label, note], i}<div
+          {#each [[stats.active_jobs, "Active jobs", `${stats.total_jobs} total posts`], [stats.employees, "Current team", `${stats.pending_requests} pending claims`], [stats.applications, "Applications", "Across your jobs"], [`${stats.admins} / ${stats.hr}`, "Admins / recruiters", "Equal admin rights"]] as [value, label, note], i}<div
               class="stat_card"
               class:featured={i === 0}
             >
@@ -269,7 +246,7 @@
                   ><Icon name="shield" size={20} /></span
                 >
                 <div class="list_body">
-                  <strong>{pending.length} employment claims to review</strong>
+                  <strong>{stats.pending_requests} employment claims to review</strong>
                   <p>Help your team’s experience get recognised.</p>
                 </div>
                 <Icon name="arrow-right" /></a
@@ -287,8 +264,8 @@
                   ><Icon name="money" size={20} /></span
                 >
                 <div class="list_body">
-                  <strong>{inr(allocated)} in remaining team allowances</strong>
-                  <p>Keep recruiter budgets aligned with your plans.</p>
+                  <strong>Wallet & recruiter budgets</strong>
+                  <p>Sample preview until payments are connected.</p>
                 </div>
                 <Icon name="arrow-right" /></a
               >
@@ -300,150 +277,103 @@
               <a href="/recruiter/jobs">Manage jobs ↗</a>
             </div>
             <div class="stat_grid">
-              {#each [[company_jobs.length, "Total posts"], [company_jobs.filter((j) => j.status === "Draft").length, "Drafts"], [company_jobs.filter((j) => j.status === "Closed").length, "Closed"], [company_jobs.reduce((s, j) => s + (j.applicants || 0), 0), "Applications"]] as [value, label]}<div
+              {#each [[stats.total_jobs, "Total posts"], [stats.active_jobs, "Active"], [stats.closed_jobs, "Closed or expired"], [stats.applications, "Applications"]] as [value, label]}<div
                   class="stat_card"
                 >
                   <span>{label}</span><strong>{value}</strong>
                 </div>{/each}
             </div>
             <p class="work_note">
-              {admins.length} company admins · {current.filter(
-                (m) => m.role === "HR / Recruiter",
-              ).length} recruiters
+              {stats.admins} company admins · {stats.hr} recruiters
             </p>
-          </section>
-          <section class="workspace_panel">
-            <div class="panel_heading">
-              <h2>Recent wallet activity</h2>
-              <a href={`${base}/wallet`}>Full history ↗</a>
-            </div>
-            <div class="workspace_table_wrap">
-              <table class="workspace_table">
-                <thead
-                  ><tr
-                    ><th>Date</th><th>Activity</th><th>By</th><th>Amount</th
-                    ></tr
-                  ></thead
-                ><tbody
-                  >{#each ledger.slice(0, 5) as t}<tr
-                      ><td data-label="Date"
-                        ><div class="table_cell_value">{t.date}</div></td
-                      ><td data-label="Activity"
-                        ><div class="table_cell_value">{t.type}</div></td
-                      ><td data-label="By"
-                        ><div class="table_cell_value">{t.by}</div></td
-                      ><td data-label="Amount"
-                        ><div class="table_cell_value">
-                          {t.amount > 0 ? "+" : ""}{inr(t.amount)}
-                        </div></td
-                      ></tr
-                    >{/each}</tbody
-                >
-              </table>
-            </div>
           </section>
         </div>
       {:else if section === "employees"}
         <nav class="workspace_tabs" aria-label="Employee status">
-          {#each ["Current", "Pending", "Past", "Rejected"] as status}<button
-              class:active={member_tab === status}
-              on:click={() => (member_tab = status)}
-              >{status} ({members.filter((m) => m.status === status)
-                .length})</button
+          {#each [["current", "Current"], ["pending", "Requests"], ["past", "Past"], ["rejected", "Declined"]] as [status, label]}<button
+              class:active={member_status === status}
+              on:click={() => (member_status = status)}
+              >{label}{status === "pending" && stats.pending_requests
+                ? ` (${stats.pending_requests})`
+                : ""}</button
             >{/each}
         </nav>
         <div class="workspace_toolbar">
           <input
             aria-label="Search team"
-            placeholder="Search name or role"
+            placeholder="Search name, title or email"
             bind:value={member_query}
-          /><button
-            class="button button_dark"
-            on:click={() => {
-              invite = true;
-              invite_saved = false;
-            }}>Invite HR / admin +</button
-          >
+          />
         </div>
         <section class="workspace_panel">
           <div class="panel_heading">
             <h2>
-              {member_tab === "Pending"
-                ? "Employment claims"
-                : `${member_tab} employees`}
+              {member_status === "pending"
+                ? "Employment requests"
+                : member_status === "current"
+                  ? "Current team"
+                  : member_status === "past"
+                    ? "Past employees"
+                    : "Declined requests"}
             </h2>
             <span class="workspace_badge neutral"
-              >{filtered_members.length} people</span
+              >{shown_members.length} people</span
             >
           </div>
-          {#if filtered_members.length}<div class="workspace_table_wrap">
+          {#if members_loading && !live_members.length}<p>Loading…</p>
+          {:else if shown_members.length}<div class="workspace_table_wrap">
               <table class="workspace_table">
                 <thead
                   ><tr
-                    ><th>Person / role</th><th
-                      >{member_tab === "Pending"
-                        ? "Claimed start"
-                        : "Access"}</th
-                    ><th>Limit / spent</th><th>Available</th><th>Actions</th
-                    ></tr
+                    ><th>Person</th><th
+                      >{member_status === "pending" ? "Claimed start" : "Access"}</th
+                    ><th>Actions</th></tr
                   ></thead
                 ><tbody
-                  >{#each filtered_members as member}<tr
-                      ><td data-label="Person / role"
+                  >{#each shown_members as member (member.user_id)}<tr
+                      ><td data-label="Person"
                         ><div class="table_cell_value">
                           <div class="person_line">
                             <span class="person_initials"
-                              >{initials(member.name)}</span
+                              >{initials(member.name || member.email)}</span
                             >
                             <div>
-                              <strong>{member.name}</strong><small
-                                >{member.title}</small
-                              ><small>{member.email}</small>
+                              <strong>{member.name || member.email}</strong
+                              ><small>{member.title}</small><small
+                                >{member.email}</small
+                              >
                             </div>
                           </div>
                         </div></td
                       ><td
-                        data-label={member_tab === "Pending"
-                          ? "Claimed start"
-                          : "Access"}
+                        data-label={member_status === "pending" ? "Claimed start" : "Access"}
                         ><div class="table_cell_value">
-                          {member_tab === "Pending"
-                            ? member.since
-                            : member.role}
-                        </div></td
-                      ><td data-label="Limit / spent"
-                        ><div class="table_cell_value">
-                          {inr(member.limit)}<small
-                            >{inr(member.spent)} spent · {member.cap_type}</small
-                          >
-                        </div></td
-                      ><td data-label="Available"
-                        ><div class="table_cell_value">
-                          {inr(Math.max(0, member.limit - member.spent))}
+                          {member_status === "pending"
+                            ? member.started_on || "Not given"
+                            : role_labels[member.role]}
                         </div></td
                       ><td data-label="Actions"
                         ><div class="table_cell_value">
-                          {#if member_tab === "Pending"}<button
+                          {#if member_status === "pending"}<button
                               class="text_action"
-                              on:click={() => claim(member, "Current")}
-                              >Approve</button
+                              on:click={() => decide(member, true)}>Approve</button
                             ><button
                               class="text_action"
-                              on:click={() => claim(member, "Rejected")}
-                              >Reject</button
-                            >{:else if member_tab === "Current"}<button
+                              on:click={() => decide(member, false)}>Decline</button
+                            >{:else if member_status === "current"}<button
                               class="text_action"
-                              on:click={() => review_member(member)}
-                              >Edit role / limit</button
+                              on:click={() => {
+                                editing_member = member;
+                                role = member.role;
+                                action_error = "";
+                              }}>Change role</button
                             ><button
                               class="text_action"
                               on:click={() => {
                                 offboard_member = member;
                                 action_error = "";
                               }}>Mark as past</button
-                            >{:else}<span class="work_note"
-                              >No active access</span
-                            >{/if}
+                            >{:else}<span class="work_note">No access</span>{/if}
                         </div></td
                       ></tr
                     >{/each}</tbody
@@ -451,13 +381,18 @@
               </table>
             </div>{:else}<Empty
               title="You’re all caught up."
-              text="No people in this view match your search."
+              text="No people in this view."
             />{/if}
           <p class="work_note">
-            Employment claims start from a candidate’s career timeline. HR/admin
-            invitations are a separate access flow; they do not verify
-            employment.
+            People join by adding this company to the career timeline on their
+            profile; you approve them here. Approved members can be made HR or
+            admins. Every admin has the same rights.
           </p>
+          <button
+            class="button button_outline button_small"
+            on:click={() => ((leaving = true), (action_error = ""))}
+            >Leave this company</button
+          >
         </section>
       {:else if section === "wallet"}
         <div class="stat_grid">
@@ -545,7 +480,9 @@
                   </div>
                   <button
                     class="button button_outline button_small"
-                    on:click={() => review_member(member)}>Modify limit</button
+                    on:click={() =>
+                      toast("Spending limits arrive with company payments.")}
+                    >Modify limit</button
                   >
                 </div>{/each}
             </div>
@@ -643,41 +580,27 @@
   </div>
 </main>
 {#if editing_member}<Modal
-    title={`Manage ${editing_member.name}`}
+    title={`Change ${editing_member.name || editing_member.email}’s access`}
     on:close={() => (editing_member = null)}
-    ><form class="workspace_form" on:submit|preventDefault={save_member}>
+    ><form class="workspace_form" on:submit|preventDefault={save_role}>
       <label class="field_label"
         >Access role<select class="field_input" bind:value={role}
-          ><option>Company Admin</option><option>HR / Recruiter</option><option
-            >Employee</option
-          ></select
+          >{#each Object.entries(role_labels) as [value, label]}<option {value}
+              >{label}</option
+            >{/each}</select
         ></label
-      ><label class="field_label"
-        >Spending cap type<select class="field_input" bind:value={cap_type}
-          ><option>Monthly</option><option>Total</option></select
-        ></label
-      ><label class="field_label"
-        >Limit (INR)<input
-          class="field_input"
-          type="number"
-          min={editing_member.spent}
-          required
-          step="1"
-          bind:value={limit}
-        /></label
       >
       <p class="form_helper">
-        {inr(editing_member.spent)} already spent. New staff begin with ₹0.
+        HR / recruiters post jobs and review applicants. Admins manage the page,
+        the team and (soon) the wallet. A company always keeps at least one admin.
       </p>
-      {#if action_error}<p role="alert" class="filter_error">
-          {action_error}
-        </p>{/if}
+      {#if action_error}<p role="alert" class="filter_error">{action_error}</p>{/if}
       <div class="form_actions">
         <button
           type="button"
           class="button button_outline"
           on:click={() => (editing_member = null)}>Cancel</button
-        ><button class="button button_dark">Save preview changes</button>
+        ><button class="button button_dark">Save</button>
       </div>
     </form></Modal
   >{/if}
@@ -685,19 +608,22 @@
     title="Move to past employees?"
     on:close={() => (offboard_member = null)}
     ><p>
-      {offboard_member.name} will lose company posting access and their remaining
-      allowance will be released. Previous spending stays in the ledger.
+      {offboard_member.name || offboard_member.email} will lose access to post
+      jobs for {company.name}.
     </p>
-    {#if action_error}<p class="filter_error" role="alert">
-        {action_error}
-      </p>{/if}
+    {#if action_error}<p class="filter_error" role="alert">{action_error}</p>{/if}
     <div class="form_actions">
-      <button
-        class="button button_outline"
-        on:click={() => (offboard_member = null)}>Keep member</button
-      ><button class="button button_dark" on:click={offboard}
-        >Confirm in preview</button
-      >
+      <button class="button button_outline" on:click={() => (offboard_member = null)}
+        >Keep member</button
+      ><button class="button button_dark" on:click={confirm_offboard}>Confirm</button>
+    </div></Modal
+  >{/if}
+{#if leaving}<Modal title="Leave this company?" on:close={() => (leaving = false)}
+    ><p>You will lose access to {company.name}’s workspace.</p>
+    {#if action_error}<p class="filter_error" role="alert">{action_error}</p>{/if}
+    <div class="form_actions">
+      <button class="button button_outline" on:click={() => (leaving = false)}>Stay</button
+      ><button class="button button_dark" on:click={leave}>Leave company</button>
     </div></Modal
   >{/if}
 {#if topup}<Modal title="Top up company wallet" on:close={() => (topup = false)}
@@ -732,36 +658,5 @@
           transferred.
         </p>
         <button class="button button_dark">Review top-up</button>
-      </form>{/if}</Modal
-  >{/if}
-{#if invite}<Modal title="Invite a teammate" on:close={() => (invite = false)}
-    >{#if invite_saved}<p class="workspace_hint">
-        Invitation preview prepared for {invite_email}. No email was sent and no
-        access was granted.
-      </p>
-      <button class="button button_dark" on:click={() => (invite = false)}
-        >Done</button
-      >{:else}<form
-        class="workspace_form"
-        on:submit|preventDefault={() => (invite_saved = true)}
-      >
-        <label class="field_label"
-          >Work email<input
-            class="field_input"
-            type="email"
-            required
-            bind:value={invite_email}
-          /></label
-        ><label class="field_label"
-          >Role<select class="field_input" bind:value={invite_role}
-            ><option>HR / Recruiter</option><option>Company Admin</option
-            ></select
-          ></label
-        >
-        <p class="form_helper">
-          Recruiters start with ₹0 spending allowance. Company admins have equal
-          permissions.
-        </p>
-        <button class="button button_dark">Preview invitation</button>
       </form>{/if}</Modal
   >{/if}

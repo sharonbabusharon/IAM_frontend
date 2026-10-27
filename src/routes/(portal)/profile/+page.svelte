@@ -12,7 +12,7 @@
     preview_account,
   } from "$lib/portal/membership_state.js";
   import { viewing_currency } from "$lib/portal/state.js";
-  import { preview_rates, to_inr } from "$lib/portal/currency.js";
+  import { to_inr } from "$lib/portal/currency.js";
   let analytics_tab = "profile";
   let membership_query_seen = false;
   $: if (
@@ -34,8 +34,8 @@
       currency: $viewing_currency,
       maximumFractionDigits: 0,
     }).format(
-      to_inr(amount || 0, $profile.salary_currency) /
-        preview_rates[$viewing_currency],
+      to_inr(amount || 0, $profile.salary_currency, $rates) /
+        ($rates[$viewing_currency] ?? 1),
     );
   async function copy_resume() {
     if ($profile.resume_private) {
@@ -71,12 +71,11 @@
   import { profile_error } from "$lib/portal/profile_validation.js";
   import Profile_skills from "$lib/portal/profile_skills.svelte";
   import Profile_photo from "$lib/portal/profile_photo.svelte";
-  import {
-    team_members,
-    company_records,
-  } from "$lib/portal/workspace_state.js";
+  import { profile_api, to_store, regroup } from "$lib/portal/profile_api.js";
+  import { designations as designation_terms } from "$lib/portal/reference.js";
   import Profile_fields from "$lib/portal/profile_fields.svelte";
-  import { notice_periods, location_name } from "$lib/portal/filter_options.js";
+  import { notice_periods } from "$lib/portal/filter_options.js";
+  import { location_label, rates } from "$lib/portal/reference.js";
   import Icon from "$lib/portal/icon.svelte";
   import Companion from "$lib/portal/companion.svelte";
   import Company_logo from "$lib/portal/company_logo.svelte";
@@ -88,7 +87,10 @@
     resume_file,
     toast,
   } from "$lib/portal/state";
-  import { default_profile, jobs, get_company } from "$lib/portal/data";
+  import { jobs, get_company } from "$lib/portal/data";
+  export let data;
+  // The server's copy is the truth; the store feeds the profile components.
+  $: profile.set(to_store(data.profile));
   const weekly_views = [5, 7, 8, 6, 9, 12, 15];
   const weekly_resume_views = [2, 1, 2, 3, 1, 4, 5];
   const weekly_downloads = [0, 1, 1, 0, 2, 1, 1];
@@ -100,10 +102,8 @@
   }
   let editing = "";
   let resume_url = "";
-  let draft = {
-    ...default_profile,
-    skills: [...default_profile.skills],
-  };
+  let draft = to_store(data.profile);
+  let saving = false;
   let skill_text = "";
   let public_preview = false;
   let resume_open = false;
@@ -178,101 +178,69 @@
     skill_text = draft.skills.join(", ");
     editing = section;
   }
-  function save() {
+  async function save() {
+    if (saving) return;
     if (!draft.name.trim() || !draft.title.trim()) {
       toast("Add your name and professional title before saving.");
       return;
     }
-    const error = profile_error(draft);
-    if (error) {
-      toast(error);
-      return;
-    }
-    if (editing === "profile")
-      draft.experience = `${draft.experience_years || 0} years`;
-    draft.current_salary = Number(draft.current_salary) || 0;
-    draft.hourly_rate = Number(draft.hourly_rate) || 0;
-    if (editing === "about") draft.about_updated = new Date().toISOString();
     if (editing === "preferences")
-      draft.expected =
-        new Intl.NumberFormat("en", {
-          style: "currency",
-          currency: draft.salary_currency,
-          maximumFractionDigits: 0,
-        }).format(draft.expected_salary) + " / year";
-    if (editing === "background") {
-      draft.experiences = draft.experiences.map((entry, index) => {
-        if (
-          JSON.stringify(entry) === JSON.stringify($profile.experiences[index])
-        )
-          return entry;
-        const linked = $company_records.find(
-          (c) => c.name.toLowerCase() === entry.company.toLowerCase(),
-        );
-        const updated = {
-          ...entry,
-          verification: linked ? "Pending" : "Unverified",
-        };
-        if (linked) queue_claim(updated, index, linked.id);
-        return updated;
-      });
-    }
+      draft.target_roles = [
+        ...new Set(
+          draft.roles
+            .split(",")
+            .map((role) => role.trim())
+            .filter(Boolean),
+        ),
+      ];
     if (editing === "skills")
-      draft.skills = [
+      draft.skill_groups = regroup(draft.skill_groups, [
         ...new Set(
           skill_text
             .split(",")
             .map((skill) => skill.trim())
             .filter(Boolean),
         ),
-      ];
-    profile.set({
-      ...draft,
-      name: draft.name.trim(),
-      title: draft.title.trim(),
-    });
+      ]);
+    const error = profile_error(draft);
+    if (error) {
+      toast(error);
+      return;
+    }
+    saving = true;
+    const result = await profile_api.save(draft);
+    saving = false;
+    if (!result.ok) {
+      toast(result.error);
+      return;
+    }
+    profile.set(to_store(result.data));
     editing = "";
     toast("Profile updated. Your next chapter looks good on you.");
   }
-  function queue_claim(experience, index, company) {
-    const signature = JSON.stringify([
-      experience.company,
-      experience.title,
-      experience.type,
-      experience.start,
-      experience.end,
-      experience.current,
-      experience.description,
-    ]);
-    team_members.update((items) => [
-      ...items.filter((m) => m.id !== `profile-owner-${index}`),
-      {
-        id: `profile-owner-${index}`,
-        profile_entry: index,
-        signature,
-        name: draft.name || $profile.name,
-        email: draft.email || $profile.email,
-        title: experience.title,
-        role: "Employee",
-        status: "Pending",
-        company,
-        department: "Other",
-        limit: 0,
-        spent: 0,
-        cap_type: "Monthly",
-        since: experience.start,
-      },
-    ]);
+  async function privacy(key) {
+    const result = await profile_api.save({ ...$profile, [key]: !$profile[key] });
+    if (!result.ok) {
+      toast(result.error);
+      return;
+    }
+    profile.set(to_store(result.data));
+    toast("Privacy preference saved.");
   }
-  function privacy(key) {
-    profile.update((value) => ({ ...value, [key]: !value[key] }));
-    toast("Preference saved in this browser.");
+  async function request_verification(index) {
+    const result = await profile_api.request_verification(index);
+    if (!result.ok) {
+      toast(result.error);
+      return;
+    }
+    profile.set(to_store(result.data));
+    toast("Verification requested. The company will review it.");
   }
   async function share() {
     share_url = `${window.location.origin}/profile?public=1`;
     try {
       await navigator.clipboard.writeText(share_url);
-      toast("Preview link copied. Profile edits stay in your browser.");
+      toast("Preview link copied.");
     } catch {
       sharing = true;
     }
@@ -558,30 +526,7 @@
                     </p>
                     {#if !public_preview && experience.verification !== "Verified" && experience.verification !== "Pending"}<button
                         class="button button_outline button_small"
-                        on:click={() => {
-                          profile.update((p) => ({
-                            ...p,
-                            experiences: p.experiences.map((item, i) =>
-                              i === experience_index
-                                ? { ...item, verification: "Pending" }
-                                : item,
-                            ),
-                          }));
-                          const linked = $company_records.find(
-                            (c) =>
-                              c.name.toLowerCase() ===
-                              experience.company.toLowerCase(),
-                          );
-                          if (linked)
-                            queue_claim(
-                              experience,
-                              experience_index,
-                              linked.id,
-                            );
-                          toast(
-                            "Verification request added to the local preview. No request sent to a company.",
-                          );
-                        }}
+                        on:click={() => request_verification(experience_index)}
                         >{experience.verification === "Rejected"
                           ? "Request approval again"
                           : "Request verification"}</button
@@ -971,7 +916,7 @@
             <div>
               <dt>PREFERRED LOCATIONS</dt>
               <dd>
-                {$profile.preferred_locations.map(location_name).join(", ") ||
+                {$profile.preferred_locations.map($location_label).join(", ") ||
                   "No preference"}{$profile.open_to_remote
                   ? " · Worldwide remote"
                   : ""}
@@ -1149,10 +1094,14 @@
           >{:else}<label class="field_label full_width"
             >Roles you’re interested in<input
               class="field_input"
-              required
+              list="designation_names"
+              placeholder="Product Designer, UX Researcher"
               bind:value={draft.roles}
               maxlength="1000"
-            /></label
+            /><datalist id="designation_names"
+              >{#each $designation_terms as term}<option value={term.name}
+                ></option>{/each}</datalist
+            ><small>Separate roles with commas. New roles are added for review.</small></label
           ><label class="field_label"
             >Work arrangement<select
               class="field_input"
@@ -1170,15 +1119,15 @@
           ><Profile_fields bind:draft section="preferences" />{/if}
       </div>
       <p class="form_helper">
-        Changes are saved in this browser for the design preview.
+        Changes are saved to your Referise profile.
       </p>
       <div class="form_actions">
         <button
           type="button"
           class="button button_outline"
           on:click={() => (editing = "")}>Cancel</button
-        ><button type="submit" class="button button_dark"
-          >Save changes <Icon name="check" size={16} /></button
+        ><button type="submit" class="button button_dark" disabled={saving}
+          >{saving ? "Saving…" : "Save changes"} <Icon name="check" size={16} /></button
         >
       </div>
     </form></Modal

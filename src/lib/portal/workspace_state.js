@@ -12,11 +12,11 @@ export function company_defaults(company) {
     branches: [],
     headquarters:
       {
-        forma: ["in-blr"],
-        layers: ["gb-lon"],
-        orbit: ["in-bom"],
-        monograph: ["us-nyc"],
-        arc: ["in-hyd"],
+        forma: ["1277333"],
+        layers: ["2643743"],
+        orbit: ["1275339"],
+        monograph: ["5128581"],
+        arc: ["1269843"],
       }[company.id] || [],
     linkedin: "",
     social: "",
@@ -204,29 +204,6 @@ export const wallet_transactions = writable([
     reference: "REF-1001",
   },
 ]);
-export const taxonomy_entries = writable([
-  {
-    id: "svelte-js",
-    name: "Svelte.js",
-    kind: "Skill",
-    uses: 12,
-    status: "Pending",
-  },
-  {
-    id: "product-designer-ux",
-    name: "Product Designer / UX",
-    kind: "Designation",
-    uses: 7,
-    status: "Pending",
-  },
-  {
-    id: "figma-design",
-    name: "Figma Design",
-    kind: "Skill",
-    uses: 4,
-    status: "Pending",
-  },
-]);
 export const preview_role = writable("Company Admin");
 let hydrated = false;
 export function hydrate_workspace() {
@@ -239,7 +216,6 @@ export function hydrate_workspace() {
     team: team_members,
     candidates: candidate_records,
     ledger: wallet_transactions,
-    taxonomy: taxonomy_entries,
   })) {
     try {
       const value = JSON.parse(

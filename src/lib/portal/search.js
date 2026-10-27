@@ -1,15 +1,15 @@
 import { skill_match } from "./membership_rules.js";
-import { get_company, jobs as sample_jobs, companies } from "./data.js";
+import { get_company, companies } from "./data.js";
 import {
   work_types,
   notice_periods,
   relocation_options,
   departments,
   benefit_options,
-  cities,
-  location_name,
 } from "./filter_options.js";
-import { preview_rates, to_inr } from "./currency.js";
+import { get } from "svelte/store";
+import { to_inr } from "./currency.js";
+import { location_index, location_label, rates as rates_store } from "./reference.js";
 
 export const filter_groups = [
   {
@@ -57,17 +57,21 @@ export const filter_groups = [
   {
     title: "Designation",
     key: "designations",
-    options: sample_jobs.map((job) => job.id),
+    // Any designation name from the shared taxonomy (sent to the API as term ids).
+    valid: (value) => value.trim().length > 0 && value.length <= 80,
   },
   {
     title: "Skills",
     key: "skills",
-    options: [...new Set(sample_jobs.flatMap((job) => job.skills))],
+    // Any skill name from the shared taxonomy (sent to the API as term ids).
+    valid: (value) => value.trim().length > 0 && value.length <= 80,
   },
   {
     title: "Locations",
     key: "locations",
-    options: cities.map((city) => city.id),
+    // GeoNames city ids. Checked by shape, not against the loaded tree, so a
+    // shared link still works before the reference data has loaded.
+    valid: (value) => /^[1-9][0-9]{0,11}$/.test(value),
   },
 ];
 const array_params = {
@@ -130,7 +134,9 @@ export function filters_from_params(params) {
       ...new Set(
         params
           .getAll(array_params[group.key])
-          .filter((value) => group.options.includes(value)),
+          .filter((value) =>
+            group.valid ? group.valid(value) : group.options.includes(value),
+          ),
       ),
     ];
   for (const key of ["easy", "saved", "worldwide"])
@@ -149,8 +155,12 @@ export function filters_from_params(params) {
   filters.radius = [0, 10, 25, 50, 100].includes(filters.radius)
     ? filters.radius
     : 0;
-  filters.currency = Object.hasOwn(preview_rates, params.get("currency"))
-    ? params.get("currency")
+  // A known currency once rates have loaded; before that, any ISO-shaped
+  // code, so a shared link keeps its currency.
+  const known = get(rates_store);
+  const currency = params.get("currency") ?? "";
+  filters.currency = (Object.keys(known).length > 1 ? Object.hasOwn(known, currency) : /^[A-Z]{3}$/.test(currency))
+    ? currency
     : "INR";
   filters.sort = ["newest", "salary", "title", "recommended", "match"].includes(
     params.get("sort"),
@@ -209,12 +219,15 @@ function distance(a, b) {
       Math.sin(radians(b.lng - a.lng) / 2) ** 2;
   return 6371 * 2 * Math.atan2(Math.sqrt(delta), Math.sqrt(1 - delta));
 }
+// Components pass { index: $location_index, rates: $rates } (last argument) so results
+// recompute when the reference data loads; scripts and tests rely on the defaults.
 export function filter_jobs(
   jobs,
   input,
   saved = [],
   applied = [],
   profile_skills = [],
+  { index = get(location_index), rates = get(rates_store) } = {},
 ) {
   const filters = { ...default_filters(), ...input };
   if (filter_error(filters)) return [];
@@ -231,9 +244,11 @@ export function filter_jobs(
       job.unlisted
     )
       return false;
+    // Requirements: the search box matches designation/job title only,
+    // never descriptions, companies or skills (skills have their own filter).
     const company = get_company(job.company);
-    const haystack = job.title.toLowerCase();
-    if (keywords.some((word) => !haystack.includes(word))) return false;
+    const title = job.title.toLowerCase();
+    if (keywords.some((word) => !title.includes(word))) return false;
     if (
       location &&
       job.location_type !== "world_remote" &&
@@ -260,7 +275,7 @@ export function filter_jobs(
       industries: [company.sector],
       sizes: [company.size],
       benefits: job.benefits ?? [],
-      designations: [job.designation_id ?? job.id],
+      designations: [job.title],
       skills: job.skills,
     })) {
       if (
@@ -270,18 +285,18 @@ export function filter_jobs(
         return false;
     }
     if (filters.locations.length && job.location_type !== "world_remote") {
-      const target = cities.find((city) => city.id === filters.locations[0]);
+      const target = index.get(filters.locations[0]);
       if (
-        !job.location_ids?.some(
-          (id) =>
+        !job.location_ids?.some((id) => {
+          const city = index.get(id);
+          return (
             filters.locations.includes(id) ||
             (filters.radius &&
-              target &&
-              cities.some(
-                (city) =>
-                  city.id === id && distance(target, city) <= filters.radius,
-              )),
-        )
+              target?.lat != null &&
+              city?.lat != null &&
+              distance(target, city) <= filters.radius)
+          );
+        })
       )
         return false;
     }
@@ -310,8 +325,8 @@ export function filter_jobs(
     if (filters.min_salary) {
       if (job.salary_hidden || job.salary_max == null) return false;
       if (
-        to_inr(job.salary_max, job.currency) <
-        to_inr(filters.min_salary || 0, filters.currency)
+        to_inr(job.salary_max, job.currency, rates) <
+        to_inr(filters.min_salary || 0, filters.currency, rates)
       )
         return false;
     }
@@ -332,8 +347,8 @@ export function filter_jobs(
   else if (filters.sort === "salary")
     result.sort(
       (a, b) =>
-        (b.salary_hidden ? -1 : to_inr(b.salary_max ?? 0, b.currency)) -
-          (a.salary_hidden ? -1 : to_inr(a.salary_max ?? 0, a.currency)) ||
+        (b.salary_hidden ? -1 : to_inr(b.salary_max ?? 0, b.currency, rates)) -
+          (a.salary_hidden ? -1 : to_inr(a.salary_max ?? 0, a.currency, rates)) ||
         recent(a, b),
     );
   else if (filters.sort === "title")
@@ -355,10 +370,8 @@ export function active_filter_labels(filters) {
       value,
       label:
         group.key === "locations"
-          ? location_name(value)
-          : group.key === "designations"
-            ? (sample_jobs.find((job) => job.id === value)?.title ?? value)
-            : value,
+          ? get(location_label)(value)
+          : value,
     })),
   );
   for (const [key, label] of [

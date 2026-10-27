@@ -40,63 +40,15 @@ export const benefit_options = [
   "Learning budget",
   "Paid leave",
 ];
-export const location_tree = [
-  {
-    id: "in",
-    name: "India",
-    children: [
-      {
-        id: "in-ka",
-        name: "Karnataka",
-        children: [
-          { id: "in-blr", name: "Bengaluru", lat: 12.972, lng: 77.595 },
-        ],
-      },
-      {
-        id: "in-mh",
-        name: "Maharashtra",
-        children: [{ id: "in-bom", name: "Mumbai", lat: 19.076, lng: 72.878 }],
-      },
-      {
-        id: "in-ts",
-        name: "Telangana",
-        children: [
-          { id: "in-hyd", name: "Hyderabad", lat: 17.385, lng: 78.487 },
-        ],
-      },
-    ],
-  },
-  {
-    id: "gb",
-    name: "United Kingdom",
-    children: [
-      {
-        id: "gb-eng",
-        name: "England",
-        children: [{ id: "gb-lon", name: "London", lat: 51.507, lng: -0.128 }],
-      },
-    ],
-  },
-  {
-    id: "us",
-    name: "United States",
-    children: [
-      {
-        id: "us-ny",
-        name: "New York",
-        children: [
-          { id: "us-nyc", name: "New York City", lat: 40.713, lng: -74.006 },
-        ],
-      },
-    ],
-  },
-];
+// The location tree, labels and coordinates come from the published
+// GeoNames data: see reference.js (location_tree, location_label, location_index).
+import { get } from "svelte/store";
+import { location_label } from "./reference.js";
+// One-off label lookup; components should use $location_label so names
+// update once the reference data loads.
+export const location_name = (id) => get(location_label)(id);
 export function leaves(nodes) {
   return nodes.flatMap((node) =>
     node.children ? leaves(node.children) : [node],
   );
-}
-export const cities = leaves(location_tree);
-export function location_name(id) {
-  return cities.find((city) => city.id === id)?.name ?? id;
 }
