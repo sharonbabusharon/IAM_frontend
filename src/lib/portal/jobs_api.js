@@ -35,6 +35,28 @@ export const jobs_api = {
   save_draft: (id, form) =>
     call(`/framework_api/recruiter/drafts${id ? `/${enc(id)}` : ""}`, { method: id ? "PUT" : "POST", body: { form } }),
   delete_draft: (id) => call(`/framework_api/recruiter/drafts/${enc(id)}`, { method: "DELETE" }),
+  // Applications: Easy Apply (uses a free application), "Yes, I applied" for
+  // external jobs, your list and today's quota; recruiters' applicant pipeline.
+  // confirm_paid: the candidate agreed to pay the fee once today's free applications are used.
+  apply: (job_id, confirm_paid = false) =>
+    call("/framework_api/applications", { method: "POST", body: { job_id, confirm_paid } }),
+  apply_external: (job_id) => call("/framework_api/applications/external", { method: "POST", body: { job_id } }),
+  // Bulk apply (saved jobs): dry_run returns the free/paid split; the real run
+  // must echo the dry run's paid count. All or nothing.
+  apply_bulk: (job_ids, { dry_run = false, confirm_paid_count = 0 } = {}) =>
+    call("/framework_api/applications/bulk", { method: "POST", body: { job_ids, dry_run, confirm_paid_count } }),
+  my_applications: () => call("/framework_api/applications"),
+  quota: () => call("/framework_api/applications/quota"),
+  applicants: (job_id, { stage = "", min_match = 0, sort = "recent" } = {}) =>
+    call(`/framework_api/recruiter/jobs/${enc(job_id)}/applications?` +
+      new URLSearchParams({ ...(stage && { stage }), ...(min_match && { min_match: String(min_match) }), sort })),
+  set_stage: (id, stage) => call(`/framework_api/recruiter/applications/${enc(id)}`, { method: "PATCH", body: { stage } }),
+  // Saved jobs (signed in): each change answers with the whole list, newest first.
+  saved_jobs: () => call("/framework_api/saved-jobs"),
+  save_job: (id) => call(`/framework_api/saved-jobs/${enc(id)}`, { method: "PUT" }),
+  unsave_job: (id) => call(`/framework_api/saved-jobs/${enc(id)}`, { method: "DELETE" }),
+  unsave_jobs: (job_ids) => call("/framework_api/saved-jobs/remove", { method: "POST", body: { job_ids } }),
+  clear_applied: () => call("/framework_api/saved-jobs?applied=true", { method: "DELETE" }),
 };
 
 const day = 24 * 60 * 60 * 1000;
@@ -70,7 +92,7 @@ export function to_card(job, label = (id) => id) {
  * "Filters": one request when the user presses Search). Salaries convert to
  * the INR baseline with the published rates; skill names map to term ids.
  */
-export function to_criteria(filters, { rates, skill_ids = {}, designation_ids = {}, saved = [], page = 1, page_size = 20 }) {
+export function to_criteria(filters, { rates, skill_ids = {}, designation_ids = {}, saved = [], page = 1, page_size = 20, unlock_id = "" }) {
   const number = (v) => (v === "" || v == null ? null : Number(v));
   return {
     query: filters.query,
@@ -93,12 +115,15 @@ export function to_criteria(filters, { rates, skill_ids = {}, designation_ids = 
     benefits: filters.benefits,
     application_methods: filters.easy ? ["Easy apply"] : filters.methods,
     job_ids: filters.saved ? (saved.length ? saved : ["-"]) : [],
+    recruiter_id: filters.recruiter || "",
     min_experience: filters.min_experience ? Number(filters.min_experience) : null,
     max_experience: number(filters.max_experience),
     interview_rounds: number(filters.rounds),
     interview_rounds_exact: filters.round_match === "exact",
     posted_within_days: filters.posted_within,
-    sort: ["newest", "salary", "title"].includes(filters.sort) ? filters.sort : "newest",
+    // Match-score sorting is bought per set of filters (POST /jobs/search/unlocks).
+    sort: filters.sort === "match" && unlock_id ? "match" : ["newest", "salary", "title"].includes(filters.sort) ? filters.sort : "newest",
+    unlock_id: filters.sort === "match" ? unlock_id : "",
     page,
     page_size,
   };

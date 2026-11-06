@@ -6,6 +6,8 @@
   export let disabled_worldwide = false;
   let open = false;
   export let query = "";
+  export let label = "Location";
+  export let allow_worldwide = true;
 </script>
 <svelte:window  on:keydown={(e) => {
     if (e.key === "Escape") open = false;
@@ -22,8 +24,8 @@
 
 >
   <label
-    ><span class="picker_caption">Location</span><input
-      aria-label="Search locations"
+    >{#if label}<span class="picker_caption">{label}</span>{/if}<input
+      aria-label={label || "Search locations"}
       placeholder={worldwide
         ? "Worldwide remote"
         : selected.length
@@ -56,7 +58,7 @@
         bind:query
         searchable={false}
         {disabled_worldwide}
-      allow_worldwide
+        {allow_worldwide}
       /><button type="button" class="text_link" on:click={() => (open = false)}
         >Done</button
       >

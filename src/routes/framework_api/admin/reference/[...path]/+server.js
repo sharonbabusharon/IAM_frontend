@@ -1,5 +1,6 @@
 import { json } from '@sveltejs/kit';
 import { backend_url } from '$lib/server/backend_api.js';
+import { client_headers } from '$lib/server/request_context.js';
 import { read_session_id } from '$lib/server/session_cookie.js';
 
 // Proxies the findJobs platform-admin endpoints. Only these paths and methods
@@ -26,7 +27,7 @@ async function forward({ params, request, url, cookies }) {
         const value = url.searchParams.get(key);
         if (value) query.set(key, value);
     }
-    const headers = { Cookie: 'jp_session=' + session_id };
+    const headers = { ...client_headers(), Cookie: 'jp_session=' + session_id };
     let body;
     if (['POST', 'PUT', 'PATCH'].includes(request.method)) {
         const text = await request.text();

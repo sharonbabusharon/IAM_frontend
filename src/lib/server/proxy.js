@@ -6,7 +6,10 @@ const image_types = ['image/jpeg', 'image/png', 'image/webp'];
 
 // Builds a browser -> backend proxy for /api/v1/<prefix>/<path>. Only the
 // listed path shapes and methods are forwarded; the backend still checks the
-// session and permissions. routes: [{ pattern, methods, query?, image? }].
+// session and permissions. routes: [{ pattern, methods, query?, image?, upload?, headers? }];
+// image routes take a raw image body on POST/PUT/PATCH (DELETE has none);
+// upload: { types, error } does the same for other raw file types;
+// headers lists request headers to pass through (lower case).
 export function make_proxy(prefix, routes) {
     async function forward({ params, request, url, cookies }) {
         const path = params.path ?? '';
@@ -19,11 +22,17 @@ export function make_proxy(prefix, routes) {
             if (value) query.set(key, value);
         }
         const type = (request.headers.get('content-type') || '').split(';')[0].trim();
-        const options = { method: request.method, session_id: read_session_id(cookies) };
-        if (route.image) {
-            if (!image_types.includes(type)) return json({ error: 'Upload a JPEG, PNG or WebP image.' }, { status: 415 });
+        const options = { method: request.method, session_id: read_session_id(cookies), headers: {} };
+        for (const name of route.headers ?? []) {
+            const value = request.headers.get(name);
+            if (value) options.headers[name] = value;
+        }
+        const has_body = ['POST', 'PUT', 'PATCH'].includes(request.method);
+        const upload = route.upload ?? (route.image && { types: image_types, error: 'Upload a JPEG, PNG or WebP image.' });
+        if (upload && has_body) {
+            if (!upload.types.includes(type)) return json({ error: upload.error }, { status: 415 });
             options.raw = { type, data: await request.arrayBuffer() };
-        } else if (['POST', 'PUT', 'PATCH'].includes(request.method)) {
+        } else if (has_body) {
             const text = await request.text();
             if (text) {
                 if (type !== 'application/json') return json({ error: 'json_required' }, { status: 415 });

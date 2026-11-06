@@ -7,11 +7,10 @@
   import {
     team_members,
     recruitment_jobs,
-    wallet_transactions,
-    inr,
     initials,
     download_csv,
   } from "./workspace_state.js";
+  import { wallet_api, rupees, request_topup } from "./payments.js";
   import { toast } from "./state.js";
   import Heading from "./page_heading.svelte";
   import Notice from "./preview_notice.svelte";
@@ -24,9 +23,6 @@
   let editing_member = null;
   let role = "employee";
   let action_error = "";
-  let topup = false;
-  let amount = 5000;
-  let payment_review = false;
   let offboard_member = null;
   let leaving = false;
   let date_range = "7";
@@ -58,6 +54,66 @@
     access = "admin";
   }
   $: if (access === "admin" && section === "employees") load_members(member_status);
+  // Live wallet (company admins): the overview shows the last 5 transactions
+  // (manual mini ledger), the wallet tab pages through all of them.
+  let wallet = null; // { balance_paise, entries, page, total }
+  let wallet_error = "";
+  let staff = []; // current HR and employees, for the spending limits
+  $: if (access === "admin" && (section === "overview" || section === "wallet")) load_wallet(1);
+  $: if (access === "admin" && (section === "overview" || section === "wallet")) load_staff();
+  async function load_wallet(page_number) {
+    const result = await wallet_api.company(company.slug, page_number, section === "wallet" ? 20 : 5);
+    if (!result.ok) {
+      wallet_error = result.error;
+      return;
+    }
+    wallet_error = "";
+    wallet =
+      page_number === 1 || !wallet
+        ? result.data
+        : { ...result.data, entries: [...wallet.entries, ...result.data.entries] };
+  }
+  async function load_staff() {
+    const result = await companies_api.members(company.slug, "current");
+    if (result.ok) staff = result.data.filter((m) => m.role !== "admin");
+  }
+  async function after_payment() {
+    await Promise.all([load_wallet(1), refresh_stats()]);
+  }
+  const kind_labels = {
+    topup: "Wallet top-up",
+    job_post: "Job post deduction",
+    apply: "Paid application",
+    match_unlock: "Match-score sort",
+    refund: "Refund",
+  };
+  $: remaining_allowances = staff.reduce((sum, m) => sum + Math.max(0, m.limit_paise - m.spent_paise), 0);
+  // Modify limit: an HR member's or employee's company-credit allowance.
+  let limit_member = null;
+  let limit_cap = "monthly";
+  let limit_rupees = 0;
+  function edit_limit(member) {
+    limit_member = member;
+    limit_cap = member.cap_type || "monthly";
+    limit_rupees = Math.round(member.limit_paise / 100);
+    action_error = "";
+  }
+  async function save_limit() {
+    const value = Math.round(Number(limit_rupees));
+    if (!(value >= 0 && value <= 10000000)) {
+      action_error = "Enter a limit from ₹0 to ₹1,00,00,000.";
+      return;
+    }
+    const result = await wallet_api.set_allowance(company.slug, limit_member.user_id, limit_cap, value * 100);
+    if (!result.ok) {
+      action_error = result.error;
+      return;
+    }
+    const name = limit_member.name;
+    limit_member = null;
+    toast(`${name}’s spending limit is now ${rupees(value * 100)} ${limit_cap === "monthly" ? "a month" : "in total"}.`);
+    await Promise.all([load_staff(), refresh_stats()]);
+  }
   async function load_members(status) {
     members_loading = true;
     const result = await companies_api.members(company.slug, status);
@@ -124,15 +180,6 @@
   $: company_jobs = $recruitment_jobs.filter(
     (j) => j.company === $page.params.slug,
   );
-  $: ledger = $page.params.slug === "forma" ? $wallet_transactions : [];
-  $: wallet = ledger.reduce((sum, t) => sum + t.amount, 0);
-  $: spent = -ledger
-    .filter((t) => t.amount < 0)
-    .reduce((sum, t) => sum + t.amount, 0);
-  $: allocated = current.reduce(
-    (sum, m) => sum + Math.max(0, m.limit - m.spent),
-    0,
-  );
   $: admins = current.filter((m) => m.role === "Company Admin");
   $: tabs = [
     ["overview", "Overview", "grid", base],
@@ -141,13 +188,6 @@
     ["hierarchy", "Workforce", "building", `${base}/hierarchy`],
     ["wallet", "Wallet & billing", "money", `${base}/wallet`],
   ];
-  function export_ledger() {
-    download_csv(
-      "referise-preview-transactions.csv",
-      ["Date", "Action", "By", "Amount (INR)", "Reference"],
-      ledger.map((t) => [t.date, t.type, t.by, t.amount, t.reference]),
-    );
-  }
 </script>
 
 <svelte:head
@@ -187,7 +227,7 @@
     companion="sage"
   />
   <Notice
-    text="Overview and employees are live. Wallet, analytics and workforce still show sample data."
+    text="Overview, employees and the wallet are live. Analytics and workforce still show sample data."
   />
   <div class="workspace_shell">
     <aside class="workspace_sidenav" use:keep_active_visible={section}>
@@ -265,11 +305,46 @@
                 >
                 <div class="list_body">
                   <strong>Wallet & recruiter budgets</strong>
-                  <p>Sample preview until payments are connected.</p>
+                  <p>Top up, set spending limits and see every transaction.</p>
                 </div>
                 <Icon name="arrow-right" /></a
               >
             </div>
+          </section>
+          <section class="workspace_panel">
+            <div class="panel_heading">
+              <h2>Wallet</h2>
+              <button class="button button_dark button_small" on:click={() => request_topup({ company_slug: company.slug, on_paid: after_payment })}
+                >Top up wallet +</button
+              >
+            </div>
+            <div class="stat_grid">
+              {#each [[wallet ? rupees(wallet.balance_paise) : "…", "Current balance", "INR"], [rupees(stats.spent_this_month_paise), "Spent this month", "On job posts; resets on the 1st"], [rupees(stats.total_caps_paise), "Spending caps allocated", "Across HR and employees"]] as [value, label, note], i}<div
+                  class="stat_card"
+                  class:featured={i === 0}
+                >
+                  <span>{label}</span><strong>{value}</strong><small>{note}</small>
+                </div>{/each}
+            </div>
+            {#if wallet_error}<p class="filter_error" role="alert">{wallet_error}</p>{/if}
+            {#if wallet?.entries.length}<div class="workspace_table_wrap">
+                <table class="workspace_table">
+                  <thead><tr><th>Date & time</th><th>Action</th><th>Performed by</th><th>Amount (INR)</th></tr></thead>
+                  <tbody
+                    >{#each wallet.entries.slice(0, 5) as entry}<tr
+                        ><td data-label="Date & time"><div class="table_cell_value">{new Date(entry.created_at).toLocaleString("en-IN")}</div></td
+                        ><td data-label="Action"><div class="table_cell_value">{kind_labels[entry.kind] ?? entry.kind}</div></td
+                        ><td data-label="Performed by"><div class="table_cell_value">{entry.actor_name || "—"}</div></td
+                        ><td data-label="Amount (INR)"
+                          ><div class="table_cell_value" class:amount_credit={entry.amount_paise > 0} class:amount_debit={entry.amount_paise < 0}>
+                            {entry.amount_paise > 0 ? "+" : ""}{rupees(entry.amount_paise)}
+                          </div></td
+                        ></tr
+                      >{/each}</tbody
+                  >
+                </table>
+              </div>{:else if wallet}<p class="workspace_hint">No transactions yet. Top up the wallet to fund paid job posts.</p>{/if}
+            <a href={`${base}/wallet`}>View full transaction history ↗</a>
           </section>
           <section class="workspace_panel">
             <div class="panel_heading">
@@ -341,7 +416,10 @@
                               <strong>{member.name || member.email}</strong
                               ><small>{member.title}</small><small
                                 >{member.email}</small
-                              >
+                              >{#if member_status === "pending" && member.status !== "pending"}<small
+                                  class="workspace_badge neutral"
+                                  >Re-verification · edited work history</small
+                                >{/if}
                             </div>
                           </div>
                         </div></td
@@ -396,13 +474,11 @@
         </section>
       {:else if section === "wallet"}
         <div class="stat_grid">
-          {#each [[inr(wallet), "Wallet balance"], [inr(spent), "Spent this month"], [inr(allocated), "Remaining allocations"], [inr(Math.max(0, wallet - allocated)), "Unallocated balance"]] as [value, label], i}<div
+          {#each [[wallet ? rupees(wallet.balance_paise) : "…", "Wallet balance"], [rupees(stats.spent_this_month_paise), "Spent this month"], [rupees(stats.total_caps_paise), "Spending caps allocated"], [wallet ? rupees(Math.max(0, wallet.balance_paise - remaining_allowances)) : "…", "Unassigned reserve"]] as [value, label], i}<div
               class="stat_card"
               class:featured={i === 0}
             >
-              <span>{label}</span><strong>{value}</strong><small
-                >INR · Sample balance</small
-              >
+              <span>{label}</span><strong>{value}</strong><small>INR</small>
             </div>{/each}
         </div>
         <div class="workspace_stack">
@@ -411,79 +487,69 @@
               <h2>Your company wallet</h2>
               <button
                 class="button button_dark"
-                on:click={() => {
-                  topup = true;
-                  payment_review = false;
-                }}>Top up wallet +</button
+                on:click={() => request_topup({ company_slug: company.slug, on_paid: after_payment })}>Top up wallet +</button
               >
             </div>
             <p class="workspace_hint warning">
-              Deposited funds are non-refundable and cannot be withdrawn or
-              transferred out. Payments are not connected in this preview.
+              Money added to the company wallet is non-refundable. It can’t be
+              withdrawn, refunded or transferred out.
             </p>
           </section>
           <section class="workspace_panel">
             <div class="panel_heading">
               <h2>Transaction history</h2>
-              <button
-                class="button button_outline button_small"
-                on:click={export_ledger}>Export CSV ↓</button
-              >
+              <a class="button button_outline button_small" href={`${base}/wallet/export`} download>Export CSV ↓</a>
             </div>
-            <div class="workspace_table_wrap">
-              <table class="workspace_table">
-                <thead
-                  ><tr
-                    ><th>Date / reference</th><th>Activity</th><th
-                      >Performed by</th
-                    ><th>Amount (INR)</th></tr
-                  ></thead
-                ><tbody
-                  >{#each ledger as t}<tr
-                      ><td data-label="Date / reference"
-                        ><div class="table_cell_value">
-                          {t.date}<small>{t.reference}</small>
-                        </div></td
-                      ><td data-label="Activity"
-                        ><div class="table_cell_value">{t.type}</div></td
-                      ><td data-label="Performed by"
-                        ><div class="table_cell_value">{t.by}</div></td
-                      ><td data-label="Amount (INR)"
-                        ><div class="table_cell_value">
-                          {t.amount > 0 ? "+" : ""}{inr(t.amount)}
-                        </div></td
-                      ></tr
-                    >{/each}</tbody
-                >
-              </table>
-            </div>
+            {#if wallet_error}<p class="filter_error" role="alert">{wallet_error}</p>{/if}
+            {#if wallet && !wallet.entries.length}<p class="workspace_hint">No transactions yet.</p>{:else if wallet}<div class="workspace_table_wrap">
+                <table class="workspace_table">
+                  <thead
+                    ><tr><th>Date & time</th><th>Action</th><th>Performed by</th><th>Amount (INR)</th><th>Balance after</th></tr></thead
+                  ><tbody
+                    >{#each wallet.entries as entry}<tr
+                        ><td data-label="Date & time"><div class="table_cell_value">{new Date(entry.created_at).toLocaleString("en-IN")}</div></td
+                        ><td data-label="Action"><div class="table_cell_value">{kind_labels[entry.kind] ?? entry.kind}</div></td
+                        ><td data-label="Performed by"><div class="table_cell_value">{entry.actor_name || "—"}</div></td
+                        ><td data-label="Amount (INR)"
+                          ><div class="table_cell_value" class:amount_credit={entry.amount_paise > 0} class:amount_debit={entry.amount_paise < 0}>
+                            {entry.amount_paise > 0 ? "+" : ""}{rupees(entry.amount_paise)}
+                          </div></td
+                        ><td data-label="Balance after"><div class="table_cell_value">{rupees(entry.balance_after_paise)}</div></td
+                        ></tr
+                      >{/each}</tbody
+                  >
+                </table>
+              </div>
+              {#if wallet.entries.length < wallet.total}<button class="button button_outline button_small" on:click={() => load_wallet(wallet.page + 1)}
+                  >Show more</button
+                >{/if}{/if}
           </section>
           <section class="workspace_panel">
             <div class="panel_heading">
-              <h2>Recruiter spending limits</h2>
+              <h2>Spending limits</h2>
               <a href={`${base}/employees`}>Manage team ↗</a>
             </div>
+            <p class="form_helper">
+              HR members and employees post paid jobs from company credits within
+              the limit you set. New members start at ₹0. Admins have no limit.
+            </p>
+            {#if !staff.length}<p class="workspace_hint">No HR members or employees yet.</p>{/if}
             <div class="workspace_list">
-              {#each current.filter((m) => m.role === "HR / Recruiter") as member}<div
-                >
+              {#each staff as member}<div>
                   <span class="person_initials">{initials(member.name)}</span>
                   <div class="list_body">
                     <strong>{member.name}</strong>
                     <p>
-                      {inr(member.spent)} of {inr(member.limit)} · {member.cap_type}
+                      {member.email} · {role_labels[member.role]} · {rupees(member.spent_paise)} spent of {rupees(member.limit_paise)}
+                      {member.cap_type === "monthly" ? "this month" : "in total"} · {rupees(Math.max(0, member.limit_paise - member.spent_paise))} left
                     </p>
                     <div class="budget_meter">
                       <span
-                        style:width={`${member.limit ? Math.min(100, (member.spent / member.limit) * 100) : 0}%`}
+                        style:width={`${member.limit_paise ? Math.min(100, (member.spent_paise / member.limit_paise) * 100) : 0}%`}
                       ></span>
                     </div>
                   </div>
-                  <button
-                    class="button button_outline button_small"
-                    on:click={() =>
-                      toast("Spending limits arrive with company payments.")}
-                    >Modify limit</button
-                  >
+                  <button class="button button_outline button_small" on:click={() => edit_limit(member)}>Modify limit</button>
                 </div>{/each}
             </div>
           </section>
@@ -626,37 +692,23 @@
       ><button class="button button_dark" on:click={leave}>Leave company</button>
     </div></Modal
   >{/if}
-{#if topup}<Modal title="Top up company wallet" on:close={() => (topup = false)}
-    >{#if payment_review}<div class="workspace_hint">
-        <h3>{inr(amount)} top-up review</h3>
-        <p>
-          The payment gateway will open here when connected. No payment has been
-          taken and the sample balance has not changed.
-        </p>
-      </div>
-      <div class="form_actions">
-        <button class="button button_dark" on:click={() => (topup = false)}
-          >Back to wallet</button
-        >
-      </div>{:else}<form
-        class="workspace_form"
-        on:submit|preventDefault={() => (payment_review = true)}
+{#if limit_member}<Modal title={`Spending limit for ${limit_member.name}`} on:close={() => (limit_member = null)}
+    ><form class="workspace_form" on:submit|preventDefault={save_limit}>
+      <label class="field_label"
+        >Limit type<select class="field_input" bind:value={limit_cap}
+          ><option value="monthly">Monthly cap (resets on the 1st)</option><option value="total">Total limit</option></select
+        ></label
       >
-        <label class="field_label"
-          >Amount (INR)<input
-            class="field_input"
-            type="number"
-            required
-            min="1"
-            max="10000000"
-            step="1"
-            bind:value={amount}
-          /></label
-        >
-        <p class="workspace_hint warning">
-          Wallet deposits are non-refundable. Funds cannot be withdrawn or
-          transferred.
-        </p>
-        <button class="button button_dark">Review top-up</button>
-      </form>{/if}</Modal
+      <label class="field_label"
+        >Limit (INR)<input class="field_input" type="number" required min="0" max="10000000" step="1" bind:value={limit_rupees} /></label
+      >
+      <p class="form_helper">
+        Spent so far: {rupees(limit_member.spent_paise)}. Changing the type doesn’t reset what was spent.
+      </p>
+      {#if action_error}<p class="filter_error" role="alert">{action_error}</p>{/if}
+      <div class="form_actions">
+        <button type="button" class="button button_outline" on:click={() => (limit_member = null)}>Cancel</button
+        ><button class="button button_dark">Save limit</button>
+      </div>
+    </form></Modal
   >{/if}

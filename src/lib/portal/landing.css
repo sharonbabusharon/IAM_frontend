@@ -981,7 +981,7 @@
   font-size: 9px;
   letter-spacing: 0.07em;
 }
-.landing_refresh .directory_heading > span:last-child {
+.landing_refresh .directory_heading > :last-child {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2601,7 +2601,7 @@
     padding-bottom: 15px;
     margin-bottom: 15px;
   }
-  .landing_refresh .directory_heading > span:last-child {
+  .landing_refresh .directory_heading > :last-child {
     font-size: 7px;
     max-width: 100px;
     text-align: right;
@@ -3014,4 +3014,12 @@
     transition: none !important;
     scroll-behavior: auto !important;
   }
+}
+.landing_refresh .search_filters .company_industry {
+  font-size: 10px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  max-width: 120px;
+  padding: 3px 0;
 }

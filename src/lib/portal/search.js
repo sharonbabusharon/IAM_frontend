@@ -117,6 +117,7 @@ export function default_filters() {
     round_match: "maximum",
     posted_within: 30,
     radius: 0,
+    recruiter: "", // a recruiter's user id: their open roles (job page "See their roles")
   };
 }
 function numeric(value, fallback, max = 1e12) {
@@ -141,6 +142,8 @@ export function filters_from_params(params) {
     ];
   for (const key of ["easy", "saved", "worldwide"])
     filters[key] = params.get(key) === "1";
+  const recruiter = params.get("recruiter") ?? "";
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(recruiter)) filters.recruiter = recruiter;
   for (const [key, param] of Object.entries(number_params))
     filters[key] = numeric(
       params.get(param),
@@ -183,6 +186,7 @@ export function filters_to_params(filters) {
     (filters[key] ?? []).forEach((value) => params.append(param, value));
   for (const key of ["easy", "saved", "worldwide"])
     if (filters[key]) params.set(key, "1");
+  if (filters.recruiter) params.set("recruiter", filters.recruiter);
   for (const [key, param] of Object.entries(number_params))
     if (
       filters[key] !== "" &&
@@ -392,6 +396,7 @@ export function active_filter_labels(filters) {
     ],
     ["posted_within", `Last ${filters.posted_within} days`],
     ["radius", `Within ${filters.radius} km`],
+    ["recruiter", "One recruiter’s roles"],
   ]) {
     if (
       (filters[key] ||

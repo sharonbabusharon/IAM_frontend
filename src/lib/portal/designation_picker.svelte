@@ -3,8 +3,14 @@
   export let selected = [];
   export let query = "";
   export let disabled = false;
+  // Also the skills filter: pass the skills store and its wording.
+  export let terms = designations;
+  export let caption = "Designation";
+  export let placeholder = "Job title or designation";
+  export let noun = "designation";
+  export let empty = "No matching designation. Search your typed job title instead.";
   let open = false;
-  $: options = $designations
+  $: options = $terms
     .map((term) => term.name)
     .filter((name) => name.toLowerCase().includes(query.toLowerCase()))
     .slice(0, 50);
@@ -30,9 +36,9 @@
 
 >
   <label
-    ><span class="picker_caption">Designation</span><input
-      aria-label="Search designations"
-      placeholder="Job title or designation"
+    ><span class="picker_caption">{caption}</span><input
+      aria-label={`Search ${noun}s`}
+      {placeholder}
       bind:value={query}
       {disabled}
       on:focus={() => (open = true)}
@@ -51,17 +57,15 @@
   {#if open && !disabled}<div
       class="predictive_options"
       role="group"
-      aria-label="Matching designations"
+      aria-label={`Matching ${noun}s`}
     >
-      <small>Select one or more designations</small>{#each options as name}<label
+      <small>Select one or more {noun}s</small>{#each options as name}<label
           ><input
             type="checkbox"
             checked={selected.includes(name)}
             on:change={() => toggle(name)}
           />{name}</label
-        >{:else}<p>
-          No matching designation. Search your typed job title instead.
-        </p>{/each}<button
+        >{:else}<p>{empty}</p>{/each}<button
         type="button"
         class="text_link"
         on:click={() => (open = false)}>Done</button

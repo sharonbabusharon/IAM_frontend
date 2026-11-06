@@ -1,17 +1,34 @@
 <script>
-  import { goto, invalidateAll as invalidate_all } from "$app/navigation";
+  import { goto, invalidateAll as invalidate_all, afterNavigate as after_navigate } from "$app/navigation";
   import { page } from "$app/stores";
   import Icon from "$lib/portal/icon.svelte";
   import Companion from "$lib/portal/companion.svelte";
   import Company_logo from "$lib/portal/company_logo.svelte";
   import Modal from "$lib/portal/modal.svelte";
-  import { saved_jobs, toggle_saved, toast, viewing_currency } from "$lib/portal/state";
+  import { saved_jobs, toggle_saved, toast, viewing_currency, search_filters } from "$lib/portal/state";
   import { converted_salary } from "$lib/portal/currency.js";
   import { rates, location_label, currency_options } from "$lib/portal/reference.js";
   import { render_markdown } from "$lib/portal/markdown.js";
   import { jobs_api, to_card } from "$lib/portal/jobs_api.js";
+  import { pay_for_job } from "$lib/portal/payments.js";
   import { image_url } from "$lib/portal/companies_api.js";
+  import { my_skill_ids, toggle_my_skill } from "$lib/portal/my_skills.js";
   export let data;
+  // Manual "View jobs" §4.1: opened from a salary-filtered search, a hidden
+  // salary reads "Matches your search parameters"; otherwise "Competitive".
+  let from_salary_search = false;
+  after_navigate(({ from }) => {
+    from_salary_search = from?.url.pathname === "/jobs" && $search_filters.min_salary > 0;
+  });
+  // Manual: required skills are one-click chips (red + adds, green − removes)
+  // and the match score recalculates on the spot. Ids pair with job.skills.
+  $: skill_ids = data.job.skill_ids ?? [];
+  $: matched = skill_ids.filter((id) => $my_skill_ids.has(id)).length;
+  $: match = skill_ids.length ? Math.round((100 * matched) / skill_ids.length) : 0;
+  async function toggle_skill(id, name) {
+    const error = await toggle_my_skill(id, name);
+    if (error) toast(error);
+  }
   $: job = to_card(data.job, $location_label);
   $: company = data.job.company; // linked paid jobs only (manual: none for free/unlinked)
   $: company_name = company?.name || data.job.company_name || "Confidential";
@@ -42,9 +59,21 @@
       toast(share_url);
     }
   }
+  // Manual: after the employer's site opens, ask "Did you apply?" when the
+  // candidate returns to this tab; "Yes" records it as applied.
+  let external_pending = false;
+  let ask_applied = false;
   async function apply_external() {
     window.open(data.job.external_url, "_blank", "noopener");
     jobs_api.outbound(job.id); // referral tracking; the page opens regardless
+    external_pending = !!$page.data.user;
+  }
+  async function confirm_external() {
+    ask_applied = external_pending = false;
+    const result = await jobs_api.apply_external(job.id);
+    if (!result.ok) return toast(result.error);
+    toast("Marked as applied. Find it in your applications.");
+    invalidate_all();
   }
   async function manage(action) {
     busy = true;
@@ -54,12 +83,27 @@
     toast(action === "close" ? "Applications closed." : "Reposted for another 30 days.");
     invalidate_all();
   }
+  // Out of pocket, fee not paid yet: a new order, then wait for the webhook.
+  async function pay() {
+    busy = true;
+    const { outcome, error } = await pay_for_job(job.id);
+    busy = false;
+    if (outcome === "published") toast("Payment received. Your job is live.");
+    else if (outcome === "pending") toast("Payment received. The job goes live once Razorpay confirms it.");
+    else if (error) toast(error);
+    invalidate_all();
+  }
   function submit_report() {
     report_dialog = false;
     toast("Feedback captured for this preview. No report was sent.");
   }
 </script>
 
+<svelte:window
+  on:focus={() => {
+    if (external_pending) ask_applied = true;
+  }}
+/>
 <svelte:head
   ><title>{job.title} at {company_name} — Referise</title><meta
     name="description"
@@ -113,7 +157,7 @@
       <div class="detail_location">
         <span><Icon name="location" size={15} />{job.location}</span><span
           class="green_dot_label"
-          ><span></span>{open ? "Actively hiring" : data.job.status === "expired" ? "Listing expired" : "Applications closed"}</span
+          ><span></span>{open ? "Actively hiring" : data.job.status === "expired" ? "Listing expired" : data.job.status === "pending_payment" ? "Awaiting payment" : "Applications closed"}</span
         ><span
           >Posted {job.posted === 0
             ? "today"
@@ -123,7 +167,14 @@
       <div class="job_facts_strip">
         <div>
           <Icon name="money" size={20} /><span
-            >COMPENSATION<strong>{converted_salary(job, $viewing_currency, $rates)}</strong></span
+            >COMPENSATION<strong
+              >{converted_salary(
+                job,
+                $viewing_currency,
+                $rates,
+                from_salary_search ? "Matches your search parameters" : "Competitive",
+              )}</strong
+            ></span
           >
         </div>
         <div>
@@ -239,6 +290,8 @@
           <div class="workspace_actions">
             {#if open}<button class="button button_outline button_small" disabled={busy} on:click={() => manage("close")}
                 >Close applications</button
+              >{:else if data.job.status === "pending_payment"}<button class="button button_dark button_small" disabled={busy} on:click={pay}
+                >{busy ? "Waiting for payment…" : "Pay to publish"}</button
               >{:else}<button class="button button_dark button_small" disabled={busy} on:click={() => manage("repost")}
                 >Repost for 30 days</button
               >{/if}<a class="button button_outline button_small" href={`/recruiter/post-job?edit=${job.id}`}>Edit</a>
@@ -272,11 +325,41 @@
             >Explore jobs<Icon name="arrow-up-right" size={15} /></a
           >
         </section>{/if}
+      {#if data.recruiter}<section class="detail_company_card">
+          <div class="sidebar_card_label">THE PERSON HIRING</div>
+          <h2>{data.recruiter.recruiter.name}</h2>
+          <p>
+            {data.recruiter.open_jobs
+              ? `${data.recruiter.open_jobs} open ${data.recruiter.open_jobs === 1 ? "role" : "roles"} on Referise.`
+              : "No other public roles right now."}
+          </p>
+          <a
+            href={`/recruiter/${data.recruiter.recruiter.id}?tab=jobs`}
+            class="button button_outline button_full"
+            >View profile<Icon name="arrow-up-right" size={15} /></a
+          >
+        </section>{/if}
       <section class="detail_skills_card">
         <span class="eyebrow_label">THE CRAFT YOU’LL BRING</span>
-        <div class="skill_chips">
-          {#each job.skills as skill}<a href={`/jobs?skill=${encodeURIComponent(skill)}`}>{skill}</a>{/each}
-        </div>
+        {#if $page.data.user && skill_ids.length}<p class="detail_match" class:high={match >= 70}>
+            <strong>{match}% skill match</strong>
+            <span>{matched} of {skill_ids.length} skills on your profile</span>
+          </p>
+          <div class="matching_skills detail_skill_toggles">
+            {#each job.skills as skill, i}{@const owned = $my_skill_ids.has(skill_ids[i])}<button
+                type="button"
+                class:matched={owned}
+                class:missing={!owned}
+                aria-pressed={owned}
+                aria-label={owned ? `Remove ${skill} from your profile` : `Add ${skill} to your profile`}
+                on:click={() => toggle_skill(skill_ids[i], skill)}>{owned ? "−" : "+"} {skill}</button
+              >{/each}
+          </div>{:else}<div class="skill_chips">
+            {#each job.skills as skill}<a href={`/jobs?skill=${encodeURIComponent(skill)}`}>{skill}</a>{/each}
+          </div>
+          {#if !$page.data.user}<p class="detail_match">
+              <a href={"/login?next=" + encodeURIComponent($page.url.pathname)}>Sign in</a> to see your skill match.
+            </p>{/if}{/if}
       </section>
       <div class="detail_fairness_note">
         <Companion kind="sage" size={90} />
@@ -287,6 +370,16 @@
     </aside>
   </div>
 </main>
+{#if ask_applied}<Modal title="Did you apply?" on:close={() => (ask_applied = external_pending = false)}
+    ><p class="modal_description">
+      Did you complete your application for {job.title} at {company_name}?
+    </p>
+    <div class="modal_actions">
+      <button class="button button_outline" on:click={() => (ask_applied = external_pending = false)}
+        >No, not yet</button
+      ><button class="button button_dark" on:click={confirm_external}>Yes, I applied</button>
+    </div></Modal
+  >{/if}
 {#if report_dialog}<Modal title="Help keep things clear." on:close={() => (report_dialog = false)}
     ><form on:submit|preventDefault={submit_report}>
       <p class="modal_description">

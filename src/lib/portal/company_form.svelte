@@ -6,9 +6,9 @@
   import { companies_api, image_url } from "./companies_api.js";
   import Image_field from "./image_field.svelte";
   import Heading from "./page_heading.svelte";
-  import Location_picker from "./location_picker.svelte";
+  import Location_search from "./location_search.svelte";
   export let editing = false;
-  const sizes = ["1–10 people", "11–50 people", "51–200 people", "201–500 people", "501–1,000 people", "1,001–5,000 people", "5,000+ people"];
+  import { company_sizes as sizes } from "./filter_options.js";
   const social_fields = [["linkedin", "LinkedIn"], ["x", "X / Twitter"], ["github", "GitHub or tech blog"], ["glassdoor", "Glassdoor or Crunchbase"]];
   let form = {
     name: "",
@@ -60,7 +60,8 @@
       website: c.website,
       social: { linkedin: "", x: "", github: "", glassdoor: "", ...c.social },
       founded: c.founded_year ?? "",
-      products: c.products.map((p) => ({ ...p })),
+      // image: what the field shows (a data: URL once re-cropped); image_url: the saved one.
+      products: c.products.map((p) => ({ ...p, image: image_url(p.image_url) })),
       benefits: c.benefits.map((b) => ({ ...b })),
       logo: image_url(c.logo_url),
       banner: image_url(c.banner_url),
@@ -107,7 +108,14 @@
       hq_location_id: form.headquarters[0],
       hq_address: form.address,
       branch_location_ids: form.branches,
-      products: form.products.map(({ name, about, url }) => ({ name, about, url: url || "" })),
+      // A saved image is kept by sending its image_url back; a cleared one is
+      // dropped (the server deletes it); a new crop uploads after the save.
+      products: form.products.map(({ name, about, url, image, image_url }) => ({
+        name,
+        about,
+        url: url || "",
+        image_url: image ? image_url ?? null : null,
+      })),
       benefits: form.benefits.map(({ title, details, icon }) => ({ title, details: details || "", icon })),
     };
     saving = true;
@@ -123,6 +131,12 @@
       if (!value?.startsWith("data:")) continue;
       const upload = await companies_api.upload_image(slug, kind, value);
       if (!upload.ok) toast(`Saved, but the ${kind} didn’t upload: ${upload.error}`);
+    }
+    // Product cards keep the order just saved, so the index matches.
+    for (const [i, product] of form.products.entries()) {
+      if (!product.image?.startsWith("data:")) continue;
+      const upload = await companies_api.upload_product_image(slug, i, product.image);
+      if (!upload.ok) toast(`Saved, but the image for ${product.name} didn’t upload: ${upload.error}`);
     }
     saving = false;
     toast(editing ? "Company page updated." : "Your company page is live.");
@@ -203,7 +217,11 @@
         <p class="form_caption">
           Choose one headquarters city. Other offices can be added below.
         </p>
-        <Location_picker bind:selected={form.headquarters} /><label
+        <Location_search
+          label="Headquarters"
+          allow_worldwide={false}
+          bind:selected={form.headquarters}
+        /><label
           class="field_label"
           >Street address<input
             class="field_input"
@@ -212,7 +230,9 @@
           /></label
         >
         <details class="filter_disclosure">
-          <summary>Branch locations</summary><Location_picker
+          <summary>Branch locations</summary><Location_search
+            label=""
+            allow_worldwide={false}
             bind:selected={form.branches}
           />
         </details>
@@ -258,7 +278,7 @@
             on:click={() =>
               (form.products = [
                 ...form.products,
-                { name: "", about: "", url: "" },
+                { name: "", about: "", url: "", image: "", image_url: null },
               ])}>Add product +</button
           >
         </div>
@@ -288,7 +308,11 @@
                 pattern="https?://.*"
                 bind:value={product.url}
               /></label
-            >
+            ><Image_field
+              label="Product image · optional"
+              max_mb={1}
+              bind:value={product.image}
+            />
             <div class="workspace_actions reorder_actions">
               <button
                 type="button"

@@ -1,231 +1,164 @@
 <script>
-  import { record_preview_application } from "$lib/portal/membership_state.js";
-  import { application_snapshots } from "$lib/portal/state.js";
+  import { invalidateAll as invalidate_all } from "$app/navigation";
   import { focus_feedback } from "$lib/portal/focus_feedback.js";
-  import { closed_job_ids } from "$lib/portal/workspace_state.js";
-  import { page } from "$app/stores";
-  import { onMount as on_mount } from "svelte";
-  import { jobs, get_company } from "$lib/portal/data.js";
-  import {
-    profile,
-    applications,
-    resume_file,
-    toast,
-  } from "$lib/portal/state.js";
-  import { notice_periods } from "$lib/portal/filter_options.js";
+  import { jobs_api } from "$lib/portal/jobs_api.js";
+  import { my_skill_ids } from "$lib/portal/my_skills.js";
+  import { load_quota, server_quota } from "$lib/portal/membership_state.js";
+  import { rupees, request_topup } from "$lib/portal/payments.js";
   import Heading from "$lib/portal/page_heading.svelte";
-  import Notice from "$lib/portal/preview_notice.svelte";
   import Empty from "$lib/portal/empty_state.svelte";
-  let name = "",
-    email = "",
-    phone = "",
-    location = "",
-    notice = "",
-    expected = "",
-    experience = 0,
-    note = "",
-    consent = false,
-    error = "",
-    complete = false;
-  $: job = jobs.find((j) => j.id === $page.params.slug);
-  on_mount(() => {
-    name = $profile.name;
-    email = $profile.email;
-    phone = $profile.phone;
-    location = $profile.location;
-    notice = $profile.notice;
-    expected = $profile.expected;
-    experience = $profile.experience_years;
-  });
-  function upload(e) {
-    const file = e.currentTarget.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024 || !/\.(pdf|docx)$/i.test(file.name)) {
-      error = "Choose a PDF or DOCX under 5 MB.";
-      return;
-    }
-    resume_file.set(file);
-    error = "";
+  import Modal from "$lib/portal/modal.svelte";
+  export let data;
+  // Manual: Easy Apply sends the profile itself (no form to retype). The
+  // server snapshots it with the privacy rules applied and computes the match.
+  $: job = data.job;
+  $: p = data.profile;
+  $: company_name = job.company?.name || job.company_name || "Confidential";
+  $: skill_ids = job.skill_ids ?? [];
+  $: match = skill_ids.length
+    ? Math.round((100 * skill_ids.filter((id) => $my_skill_ids.has(id)).length) / skill_ids.length)
+    : 0;
+  $: money = (amount) =>
+    amount
+      ? new Intl.NumberFormat("en", { style: "currency", currency: p.salary_currency, maximumFractionDigits: 0 }).format(amount)
+      : "Not set";
+  $: shared = [
+    ["Name", p.name],
+    ["Email", p.email || "Not set"],
+    ["Phone", p.phone || "Not set"],
+    ["Location", p.location || "Not set"],
+    ["Experience", `${p.experience_years || 0} years`],
+    ["Notice period", p.notice || "Not set"],
+    ["Expected salary", money(p.expected_salary)],
+    ["Current salary", p.current_salary_visibility === "hidden" ? "Hidden from all (not shared)" : money(p.current_salary)],
+    ["Skills", p.skills.length ? p.skills.join(", ") : "None yet"],
+  ];
+  let consent = false;
+  let busy = false;
+  let error = "";
+  let needs_profile = false;
+  let done = null;
+  // Manual: past the free daily applications each one costs the apply fee
+  // from the wallet, after an explicit confirmation; too little balance opens
+  // the top-up modal instead.
+  $: quota = $server_quota ?? data.quota;
+  let paid_prompt = null; // { fee_paise, balance_paise } while the confirm modal is open
+  function top_up(fee_paise, balance_paise) {
+    request_topup({
+      alert: `Applying for this role needs ${rupees(fee_paise)}; your wallet has ${rupees(balance_paise)}. Top up to continue.`,
+      need_paise: fee_paise - balance_paise,
+    });
+  }
+  function ask_to_pay(fee_paise, balance_paise) {
+    if (balance_paise < fee_paise) top_up(fee_paise, balance_paise);
+    else paid_prompt = { fee_paise, balance_paise };
   }
   function submit() {
-    if (!consent || $applications.includes(job.id)) return;
-    if (!record_preview_application()) return;
-    application_snapshots.update((items) => [
-      ...items,
-      {
-        job_id: job.id,
-        name,
-        email,
-        phone,
-        resume_name: $resume_file?.name || "Sample profile résumé",
-        created_at: new Date().toISOString(),
-      },
-    ]);
-    applications.update((v) => (v.includes(job.id) ? v : [...v, job.id]));
-    complete = true;
+    if (!consent || busy) return;
+    if (quota && quota.remaining === 0 && quota.apply_fee_paise > 0)
+      return ask_to_pay(quota.apply_fee_paise, quota.wallet_paise);
+    send(false);
+  }
+  async function send(confirm_paid) {
+    paid_prompt = null;
+    busy = true;
+    error = "";
+    const result = await jobs_api.apply(job.id, confirm_paid);
+    busy = false;
+    if (result.status === 402 && result.data) {
+      // The quota or the balance changed since the page loaded.
+      load_quota();
+      const { reason, fee_paise, balance_paise } = result.data;
+      if (reason === "confirm_paid") ask_to_pay(fee_paise, balance_paise);
+      else top_up(fee_paise, balance_paise);
+      return;
+    }
+    if (!result.ok) {
+      error = result.error;
+      needs_profile = result.status === 409 && !p.saved;
+      return;
+    }
+    done = result.data;
+    load_quota();
+    invalidate_all();
   }
 </script>
 
-<svelte:head
-  ><title>Apply for {job?.title || "a job"} — Referise</title></svelte:head
->
+<svelte:head><title>Apply for {job.title} — Referise</title></svelte:head>
 <main id="main-content" class="workspace portal_container">
   <Heading
     eyebrow="A LITTLE COURAGE. A NEW POSSIBILITY."
     title="Make your"
     accent="next move."
-    description={job
-      ? `${job.title} at ${get_company(job.company).name}`
-      : "Find a role to begin your application."}
-  /><Notice
-    text="Application preview · No information is submitted to an employer."
+    description={`${job.title} at ${company_name}`}
   />
-  {#if !job}<Empty
-      title="This role could not be found."
-      text="Explore current opportunities to get started."
-    />{:else if $closed_job_ids.includes(job.id)}<Empty
-      title="This role is now closed."
+  {#if done || job.applied_at}<div class="feedback_panel" tabindex="-1" use:focus_feedback>
+      <Empty
+        title="Your application is in."
+        text={`Sent to the ${company_name} hiring team on ${new Date(done?.submitted_at || job.applied_at).toLocaleDateString("en-IN")}. Follow its progress in your applications.`}
+        ><a class="button button_dark" href="/applications">View my applications ↗</a></Empty
+      >
+    </div>{:else if job.status !== "active"}<Empty
+      title="This role is no longer open."
       text="Explore current opportunities to find your next move."
       ><a class="button button_dark" href="/jobs">Find another role</a></Empty
-    >{:else if complete || $applications.includes(job.id)}<div
-      class="feedback_panel"
-      tabindex="-1"
-      use:focus_feedback
-    >
-      <Empty
-        title="Your application preview is saved."
-        text="You can find it in your applications. Nothing has been sent to the employer."
-        ><a class="button button_dark" href="/applications"
-          >View my applications ↗</a
-        ></Empty
-      >
-    </div>{:else if job.application !== "Easy apply"}<section
-      class="workspace_panel"
-    >
-      <h2>Continue with the employer</h2>
-      <p>
-        This role uses {job.application === "External"
-          ? "an external application site"
-          : "email applications"}. A verified destination is not available for
-        this sample job.
-      </p>
-      <a class="button button_outline" href={`/jobs/${job.id}`}
-        >Back to the role</a
-      >
-    </section>{:else}<form
-      class="workspace_grid workspace_form"
-      on:submit|preventDefault={submit}
-    >
+    >{:else if job.application !== "Easy apply"}<Empty
+      title="This role takes applications on the employer’s site."
+      text="Open the role and use “Apply on the company’s site”."
+      ><a class="button button_dark" href={`/jobs/${job.id}`}>Back to the role</a></Empty
+    >{:else}<form class="workspace_grid workspace_form" on:submit|preventDefault={submit}>
       <section class="workspace_panel">
-        <h2>A quick introduction.</h2>
-        <p class="form_caption">
-          Prefilled from your profile. Check your details before continuing.
+        <h2>What the hiring team will see</h2>
+        <p class="form_helper">
+          A copy of your profile as it is now. Change anything on
+          <a class="text_link" href="/profile">your profile</a> before you apply.
         </p>
-        <div class="form_grid">
-          <label class="field_label"
-            >Name *<input
-              class="field_input"
-              required
-              minlength="2"
-              maxlength="100"
-              bind:value={name}
-            /></label
-          ><label class="field_label"
-            >Email *<input
-              class="field_input"
-              type="email"
-              required
-              bind:value={email}
-            /></label
-          ><label class="field_label"
-            >Phone number *<input
-              class="field_input"
-              type="tel"
-              required
-              maxlength="30"
-              bind:value={phone}
-            /></label
-          ><label class="field_label"
-            >Location *<input
-              class="field_input"
-              required
-              bind:value={location}
-            /></label
-          ><label class="field_label"
-            >Notice period<select class="field_input" bind:value={notice}
-              >{#each notice_periods as value}<option>{value}</option
-                >{/each}</select
-            ></label
-          ><label class="field_label"
-            >Experience (years)<input
-              class="field_input"
-              type="number"
-              min="0"
-              max="99"
-              step="1"
-              bind:value={experience}
-            /></label
-          ><label class="field_label"
-            >Expected annual compensation<input
-              class="field_input"
-              bind:value={expected}
-            /></label
-          ><label class="field_label full"
-            >Résumé · PDF or DOCX, up to 5 MB<input
-              class="field_input"
-              type="file"
-              accept=".pdf,.docx"
-              on:change={upload}
-            /><small
-              >{$resume_file?.name ||
-                "No file selected. The demo can use your sample profile."}</small
-            ></label
-          ><label class="field_label full"
-            >A note for the team (optional)<textarea
-              class="field_input"
-              maxlength="2000"
-              rows="5"
-              bind:value={note}
-            ></textarea></label
-          >
-        </div>
-        {#if error}<p class="filter_error" role="alert">{error}</p>{/if}<label
-          class="filter_checkbox"
-          ><input type="checkbox" required bind:checked={consent} />I’ve
-          reviewed these details. My phone number, email and résumé will be
-          included for the recruiter, regardless of my public profile
-          visibility. This preview sends nothing.</label
-        >
-        <div class="form_actions">
-          <a class="button button_outline" href={`/jobs/${job.id}`}
-            >Back to role</a
-          ><button class="button button_dark" disabled={!!error}
-            >Save application preview ↗</button
-          >
-        </div>
-      </section>
-      <aside class="workspace_panel" style="align-self:start">
-        <span class="eyebrow_label">YOUR NEXT CHAPTER</span>
-        <h2 style="margin-top:15px">{job.title}</h2>
-        <p>{get_company(job.company).name}</p>
         <dl class="facts_list">
-          <div>
-            <dt>Location</dt>
-            <dd>{job.location}</dd>
-          </div>
-          <div>
-            <dt>Workplace</dt>
-            <dd>{job.mode}</dd>
-          </div>
-          <div>
-            <dt>Job type</dt>
-            <dd>{job.type}</dd>
-          </div>
+          {#each shared as [label, value]}<div>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>{/each}
         </dl>
-        <p class="workspace_hint">
-          Your résumé is intended for this employer’s application review. It
-          does not change your public résumé preference.
-        </p>
+      </section>
+      <aside class="workspace_panel">
+        <h2>{match}% skill match</h2>
+        <p class="form_helper">The share of this role’s skills on your profile.</p>
+        {#if quota}<p>
+            {quota.remaining > 0
+              ? `Uses 1 of today’s free applications (${quota.remaining} of ${quota.limit} left).`
+              : quota.apply_fee_paise > 0
+                ? `You’ve used today’s ${quota.limit} free applications. This one costs ${rupees(quota.apply_fee_paise)} from your wallet (balance ${rupees(quota.wallet_paise)}).`
+                : `You’ve used today’s ${quota.limit} free applications.`}
+          </p>{/if}
+        {#if !p.saved}<p class="auth_alert" role="alert">
+            Save your profile first so the hiring team has something to read.
+            <a class="text_link" href="/profile">Go to your profile ↗</a>
+          </p>{/if}
+        <label class="filter_checkbox"
+          ><input type="checkbox" required bind:checked={consent} />I’ve reviewed these details. My email and
+          phone go to this employer even if my public profile hides them.</label
+        >
+        {#if error}<p class="auth_alert" role="alert">
+            {error}{#if needs_profile}. <a class="text_link" href="/profile">Go to your profile ↗</a>{/if}
+          </p>{/if}
+        <button
+          class="button button_terracotta"
+          disabled={!consent || busy || !p.saved}
+          >{busy ? "Sending…" : "Send application"}</button
+        >
       </aside>
     </form>{/if}
 </main>
+{#if paid_prompt}<Modal title="Use your wallet for this application?" on:close={() => (paid_prompt = null)}
+    ><p>
+      You have reached your daily limit of {quota?.limit ?? ""} free applications. Applying for
+      this role requires {rupees(paid_prompt.fee_paise)} from your wallet balance
+      ({rupees(paid_prompt.balance_paise)}).
+    </p>
+    <div class="form_actions">
+      <button class="button button_outline" on:click={() => (paid_prompt = null)}>Not now</button
+      ><button class="button button_dark" on:click={() => send(true)}
+        >Confirm & spend {rupees(paid_prompt.fee_paise)}</button
+      >
+    </div></Modal
+  >{/if}

@@ -6,12 +6,16 @@
     membership_settings,
     premium_active,
   } from "$lib/portal/membership_state.js";
-  $: locked = (key) =>
-    !$premium_active && $membership_settings.premium_filters.includes(key);
+  // Signed in, match-score sorting is a paid unlock (manual: ₹20 per search)
+  // instead of a membership filter.
+  $: gating = $page.data.user
+    ? { ...$membership_settings, premium_filters: $membership_settings.premium_filters.filter((k) => k !== "sort_match") }
+    : $membership_settings;
+  $: locked = (key) => !$premium_active && gating.premium_filters.includes(key);
   $: effective_filters = allowed_filters(
     applied_filters,
     default_filters(),
-    $membership_settings,
+    gating,
     $premium_active,
   );
   import { page } from "$app/stores";
@@ -30,10 +34,14 @@
     active_filter_labels,
   } from "$lib/portal/search";
   import { jobs_api, to_card, to_criteria } from "$lib/portal/jobs_api.js";
+  import { wallet_api, rupees, request_topup } from "$lib/portal/payments.js";
+  import { onMount as on_mount } from "svelte";
+  import { skill_match } from "$lib/portal/membership_rules.js";
+  import { my_skill_names } from "$lib/portal/my_skills.js";
   import {
     saved_jobs,
     saved_searches,
-    applications,
+    recent_titles,
     search_filters,
     viewing_currency,
     toast,
@@ -68,13 +76,69 @@
   let search_seq = 0;
   $: skill_ids = Object.fromEntries($skill_terms.map((t) => [t.name, t.id]));
   $: designation_ids = Object.fromEntries($designation_terms.map((t) => [t.name, t.id]));
-  $: if (browser) run_search(effective_filters, current_page, $rates, skill_ids, designation_ids, effective_filters.saved ? $saved_jobs : []);
-  async function run_search(f, page, rates, ids, designation_ids, saved) {
+  // Match-score sort: an unlock holds for the filters it was bought for. Paging
+  // keeps it; any other change drops back to the previous sort (manual).
+  let unlock = { id: "", key: "" };
+  let sort_before_match = "newest";
+  let unlock_prompt = false;
+  let unlocking = false;
+  let match_fee_paise = 2000;
+  on_mount(async () => {
+    const settings = await fetch("/framework_api/settings").then((r) => r.json()).catch(() => null);
+    if (settings?.data) match_fee_paise = settings.data.match_sort_fee_paise;
+  });
+  const criteria_for = (f, extra = {}) =>
+    to_criteria({ ...f, sort: "newest" }, {
+      rates: $rates,
+      skill_ids,
+      designation_ids,
+      saved: f.saved ? $saved_jobs : [],
+      page: 1,
+      page_size,
+      ...extra,
+    });
+  $: unlock_key = (f) => JSON.stringify(criteria_for(f));
+  $: if (browser && $page.data.user && effective_filters.sort === "match" && unlock.key !== unlock_key(effective_filters))
+    drop_match(unlock.key ? "Match sorting covers one search; the new filters use your previous sort." : "");
+  function drop_match(message) {
+    filters = { ...filters, sort: sort_before_match === "match" ? "newest" : sort_before_match };
+    if (message) toast(message);
+    sync();
+  }
+  function choose_sort(event) {
+    const value = event.currentTarget.value;
+    if (value !== "match" || !$page.data.user || unlock.key === unlock_key(applied_filters)) return sync();
+    filters = { ...filters, sort: applied_filters.sort }; // until it's unlocked
+    sort_before_match = applied_filters.sort;
+    unlock_prompt = true;
+  }
+  async function buy_match() {
+    unlocking = true;
+    const result = await wallet_api.unlock_match(criteria_for(applied_filters));
+    unlocking = false;
+    unlock_prompt = false;
+    if (result.status === 402)
+      return request_topup({
+        alert: `Match Score sorting requires ${match_fee_paise / 100} credits. Please top up your wallet to proceed.`,
+        need_paise: (result.data?.fee_paise ?? match_fee_paise) - (result.data?.balance_paise ?? 0),
+      });
+    if (!result.ok) return toast(result.error);
+    unlock = { id: result.data.unlock_id, key: unlock_key(applied_filters) };
+    toast(result.data.charged_paise ? `Match sorting unlocked for ${rupees(result.data.charged_paise)}.` : "Match sorting is on.");
+    filters = { ...applied_filters, sort: "match" };
+    sync();
+  }
+  $: if (browser) run_search(effective_filters, current_page, $rates, skill_ids, designation_ids, effective_filters.saved ? $saved_jobs : [], unlock.id);
+  async function run_search(f, page, rates, ids, designation_ids, saved, unlock_id) {
     const seq = ++search_seq;
     searching = true;
-    const result = await jobs_api.search(to_criteria(f, { rates, skill_ids: ids, designation_ids, saved, page, page_size }));
+    const result = await jobs_api.search(to_criteria(f, { rates, skill_ids: ids, designation_ids, saved, page, page_size, unlock_id }));
     if (seq !== search_seq) return; // a newer search started meanwhile
     searching = false;
+    if (result.status === 402 && f.sort === "match") {
+      unlock = { id: "", key: "" }; // the backend no longer accepts it
+      return;
+    }
     search_error = result.ok ? "" : result.error;
     total = result.ok ? result.data.total : 0;
     page_jobs = result.ok ? result.data.jobs.map((j) => to_card(j, $location_label)) : [];
@@ -83,7 +147,12 @@
     filters_to_params(filters).toString() !==
     filters_to_params(applied_filters).toString();
   $: page_count = Math.max(1, Math.ceil(total / page_size));
-  $: visible_jobs = page_jobs;
+  // ponytail: the search API has no min_match, so it filters the loaded page
+  // only (totals and paging count every job); move it server-side if needed.
+  $: visible_jobs =
+    effective_filters.min_match && $page.data.user
+      ? page_jobs.filter((j) => skill_match(j, $my_skill_names) >= effective_filters.min_match)
+      : page_jobs;
   $: active_filters = active_filter_labels(effective_filters);
   $: filter_count = active_filters.length;
   function sync() {
@@ -96,10 +165,12 @@
     filters = allowed_filters(
       filters_from_params(filters_to_params(filters)),
       default_filters(),
-      $membership_settings,
+      gating,
       $premium_active,
     );
     applied_filters = structuredClone(filters);
+    const title = filters.query.trim();
+    if (title) recent_titles.update((list) => [title, ...list.filter((t) => t.toLowerCase() !== title.toLowerCase())].slice(0, 5));
     search_filters.set(structuredClone(filters));
     viewing_currency.set(filters.currency);
     show_filters = false;
@@ -214,6 +285,14 @@
           >Find opportunities <Icon name="arrow-right" size={17} /></button
         >
       </form>
+      {#if $recent_titles.length}<div class="saved_search_row recent_titles">
+          <span>Recent</span>{#each $recent_titles as title}<a href={`/jobs?${new URLSearchParams({ q: title })}`}>{title}</a
+            >{/each}<button
+            type="button"
+            class="text_link"
+            on:click={() => recent_titles.set([])}>Clear</button
+          >
+        </div>{/if}
     </div>
   </section>
   <div class="portal_container search_workspace">
@@ -294,13 +373,15 @@
             ><span>Sort by</span><select
               aria-label="Sort opportunities"
               bind:value={filters.sort}
-              on:change={sync}
+              on:change={choose_sort}
               ><option value="salary">Highest salary</option><option
                 value="newest">Newest first</option
               ><option value="match" disabled={locked("sort_match")}
                 >Highest skill match{locked("sort_match")
                   ? " · Premium"
-                  : ""}</option
+                  : $page.data.user && unlock.key !== unlock_key(applied_filters)
+                    ? ` · ${rupees(match_fee_paise)}`
+                    : ""}</option
               ></select
             ></label
           >
@@ -343,6 +424,7 @@
           {#each visible_jobs as job (job.id)}<Job_card
               {job}
               currency={applied_filters.currency}
+              salary_matched={effective_filters.min_salary > 0}
             />{/each}
         </div>
         <div class="pagination">
@@ -458,3 +540,16 @@
       </div>
     </form></Modal
   >{/if}
+{#if unlock_prompt}<Modal title="Sort by skill match?" on:close={() => (unlock_prompt = false)}
+  ><p>
+    Sorting this search by your skill match costs {rupees(match_fee_paise)} from your
+    wallet. It stays on while you page through these results; a new search needs a
+    new unlock. Filters you already unlocked aren’t charged again.
+  </p>
+  <div class="form_actions">
+    <button class="button button_outline" on:click={() => (unlock_prompt = false)}>Not now</button
+    ><button class="button button_dark" disabled={unlocking} on:click={buy_match}
+      >{unlocking ? "Unlocking…" : `Unlock for ${rupees(match_fee_paise)}`}</button
+    >
+  </div></Modal
+>{/if}

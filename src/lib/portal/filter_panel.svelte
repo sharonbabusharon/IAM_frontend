@@ -6,6 +6,15 @@
   } from "./membership_state.js";
   import { currency_options } from "./reference.js";
   import { notice_periods } from "./filter_options.js";
+  import { skills as skill_terms } from "./reference.js";
+  import { my_skill_names } from "./my_skills.js";
+  import Designation_picker from "./designation_picker.svelte";
+  import { page } from "$app/stores";
+  $: signed_in = !!$page.data.user;
+  let skill_query = "";
+  // Manual "Search jobs" §2A: [Import Profile Skills] adds the profile's skills.
+  const import_skills = () =>
+    (filters = { ...filters, skills: [...new Set([...filters.skills, ...$my_skill_names])] });
   export let filters;
   export let scope = "search";
   $: locked = (key) =>
@@ -85,7 +94,27 @@
     </div>
     <small>0 means any salary. Converted at daily exchange rates.</small>
   </fieldset>
-  <fieldset disabled={locked("min_match")}>
+  <fieldset disabled={locked("skills")} class="skills_filter">
+    <legend>Skills{locked("skills") ? " · Premium" : ""}</legend>
+    <Designation_picker
+      bind:selected={filters.skills}
+      bind:query={skill_query}
+      terms={skill_terms}
+      caption="Skill"
+      placeholder="Add a skill"
+      noun="skill"
+      empty="No matching skill."
+      disabled={locked("skills")}
+    />
+    {#if signed_in}<button
+        type="button"
+        class="text_link"
+        disabled={!$my_skill_names.length}
+        title={$my_skill_names.length ? "" : "Add skills to your profile first."}
+        on:click={import_skills}>Import profile skills</button
+      >{/if}
+  </fieldset>
+  <fieldset disabled={locked("min_match") || !signed_in}>
     <legend>Minimum skill match{locked("min_match") ? " · Premium" : ""}</legend
     ><select
       class="field_input"
@@ -95,7 +124,11 @@
       >{#each [100, 90, 80, 70, 60, 50] as score}<option value={score}
           >{score}% or more</option
         >{/each}</select
-    ><small>Based on the skills in your preview profile.</small>
+    ><small
+      >{signed_in
+        ? "Based on the skills on your profile; applies to the jobs on each results page."
+        : "Sign in to filter by your skill match."}</small
+    >
   </fieldset>
   {#if !$premium_active && $membership_settings.premium_filters.length}<button
       type="button"

@@ -7,9 +7,13 @@ export const { GET, POST, PUT, PATCH, DELETE } = make_proxy('companies', [
     { pattern: /^slug-availability$/, methods: ['GET'], query: ['slug'] },
     { pattern: new RegExp(`^${slug}$`), methods: ['GET', 'PUT', 'DELETE'] },
     { pattern: new RegExp(`^${slug}/(logo|banner)$`), methods: ['PUT'], image: true },
+    { pattern: new RegExp(`^${slug}/products/[0-9]{1,2}/image$`), methods: ['PUT', 'DELETE'], image: true },
     { pattern: new RegExp(`^${slug}/dashboard$`), methods: ['GET'] },
     { pattern: new RegExp(`^${slug}/members$`), methods: ['GET'], query: ['status'] },
     { pattern: new RegExp(`^${slug}/members/${uuid}/(approve|reject|offboard)$`), methods: ['POST'] },
     { pattern: new RegExp(`^${slug}/members/${uuid}$`), methods: ['PATCH'] },
+    { pattern: new RegExp(`^${slug}/members/${uuid}/allowance$`), methods: ['PUT'] },
+    { pattern: new RegExp(`^${slug}/wallet$`), methods: ['GET'], query: ['page', 'page_size'] },
+    { pattern: new RegExp(`^${slug}/wallet/topups$`), methods: ['POST'] },
     { pattern: new RegExp(`^${slug}/leave$`), methods: ['POST'] }
 ]);

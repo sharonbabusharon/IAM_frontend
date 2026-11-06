@@ -10,7 +10,7 @@
   export let disabled_worldwide = false;
   let expanded = [];
   // ~38k places: fully expanding everything would freeze the page, so
-  // expand-all and auto-expand only apply while the view is small enough.
+  // search results auto-expand only while the view is small enough.
   const max_open_leaves = 400;
 
   $: needle = query.trim().toLowerCase();
@@ -48,17 +48,6 @@
       aria-label="Search locations"
       bind:value={query}
     />{/if}
-  <div class="location_actions">
-    <button
-      type="button"
-      on:click={() =>
-        (expanded =
-          visible_leaves <= max_open_leaves
-            ? branches(visible)
-            : visible.map((country) => country.id))}>Expand all</button
-    ><button type="button" on:click={() => (expanded = [])}>Collapse all</button
-    >
-  </div>
   {#if $reference_status === "error" && !$location_tree.length}<p
       class="workspace_hint warning"
     >

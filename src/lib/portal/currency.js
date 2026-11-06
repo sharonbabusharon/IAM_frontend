@@ -7,8 +7,10 @@ export function to_inr(amount, currency, rates = get(rates_store)) {
   return amount * (rates[currency] ?? 1);
 }
 // Pass $rates from components so the text updates when the rates load.
-export function converted_salary(job, currency, rates = get(rates_store)) {
-  if (job.salary_hidden || job.salary_max == null) return "Competitive";
+// hidden_label: what a hidden salary reads as (manual "Search jobs" §4C:
+// "Matches your search parameters" from a salary-filtered search).
+export function converted_salary(job, currency, rates = get(rates_store), hidden_label = "Competitive") {
+  if (job.salary_hidden || job.salary_max == null) return hidden_label;
   // Until the rates file loads, show the original currency rather than a wrong conversion.
   const target = currency && rates[currency] && rates[job.currency] ? currency : job.currency;
   const format = (amount) =>

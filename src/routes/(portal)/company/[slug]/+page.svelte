@@ -24,6 +24,8 @@
   )
     ? $page.url.searchParams.get("tab")
     : "overview";
+  // Manual "Company jobs": the location filter lists only this company's offices.
+  $: office_cities = [...new Set([company?.hq_location_id, ...(company?.branch_location_ids ?? [])])].filter(Boolean);
   let filters = default_filters();
   let applied_filters = default_filters();
   // Manual "Company jobs": the platform search, locked to this company.
@@ -145,11 +147,18 @@
           <summary>Location, experience & salary</summary>
           <div class="form_grid workspace_form">
             <label class="field_label"
-              >Location<input
+              >Location<select
                 class="field_input"
-                bind:value={filters.location}
-                placeholder="City or country"
-              /></label
+                value={filters.locations[0] || ""}
+                on:change={(e) =>
+                  (filters.locations = e.currentTarget.value
+                    ? [e.currentTarget.value]
+                    : [])}
+                ><option value="">Any office</option
+                >{#each office_cities as id}<option value={id}
+                    >{$location_label(id)}</option
+                  >{/each}</select
+              ></label
             ><label class="field_label"
               >Experience (years)<input
                 class="field_input"
@@ -217,6 +226,12 @@
               {#each company.products || [] as product}<div
                   class="workspace_hint"
                 >
+                  {#if product.image_url}<img
+                      class="company_product_image"
+                      src={image_url(product.image_url)}
+                      alt=""
+                      loading="lazy"
+                    />{/if}
                   <h3>{product.name}</h3>
                   <p>{product.about}</p>
                   {#if product.url}<a

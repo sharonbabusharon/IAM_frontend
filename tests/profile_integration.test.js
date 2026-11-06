@@ -28,16 +28,36 @@ function plant(name) {
   const user = sql(`INSERT INTO users (iam_user_id, email, name) VALUES ('it-profile-${name}-${tag}', '${name}@example.com', '${name} Tester') RETURNING id;`);
   const session = sql(`INSERT INTO sessions (user_id, expires_at, access_expires_at, refresh_token_enc, access_token_enc, key_id)
     VALUES ('${user}', now() + interval '1 hour', now() + interval '1 hour', '\\x00', '\\x00', 'it') RETURNING id;`);
+  planted.push(user);
+  accept(user);
   return { user, cookie: `jp_session=${session}` };
 }
 
+// The consent gate: planted users accept the backend's current documents
+// (read once in before()), so these tests reach the profile routes.
+const planted = [];
+let documents = [];
+function accept(user) {
+  for (const d of documents)
+    sql(`INSERT INTO consents (user_id, ecosystem_id, doc_id, doc_version, status)
+      SELECT id, iam_user_id, '${d.doc_id}', '${d.version}', 'accepted' FROM users WHERE id = '${user}';`);
+}
+
 let asha, ravi;
-before(() => {
+before(async () => {
   asha = plant("asha");
   ravi = plant("ravi");
+  const required = await (await fetch(`${BACKEND}/api/v1/consents/required`, { headers: { cookie: asha.cookie } })).json();
+  documents = required.data ?? [];
+  for (const who of [asha, ravi]) accept(who.user);
 });
 after(() => {
-  sql(`DELETE FROM users WHERE iam_user_id LIKE 'it-profile-%-${tag}';
+  const ids = planted.map((id) => `'${id}'`).join(",");
+  sql(`SET session_replication_role = replica;
+       DELETE FROM consents WHERE user_id IN (${ids});
+       DELETE FROM account_events WHERE user_id IN (${ids});
+       SET session_replication_role = DEFAULT;
+       DELETE FROM users WHERE iam_user_id LIKE 'it-profile-%-${tag}';
        DELETE FROM skills WHERE name LIKE '%zz${tag}';
        DELETE FROM designations WHERE name LIKE '%zz${tag}';`);
 });
@@ -75,7 +95,11 @@ function filled(starter, overrides = {}) {
     ...to_store(starter),
     slug: `asha-${tag}`,
     title: "Product Designer",
-    location: "Bengaluru, India",
+    location: "typed text, replaced by the location's label",
+    current_company: "Forma",
+    current_location_id: "1277333",
+    current_work_arrangement: "Hybrid",
+    current_work_type: "Full-time",
     website: "asha.design",
     about: "I design calm tools.",
     phone: "+91 98765 43210",
@@ -97,12 +121,25 @@ function filled(starter, overrides = {}) {
       { name: "Research", skills: [`Interviews zz${tag}`] },
     ],
     social_links: [{ platform: "LinkedIn", url: "https://linkedin.com/in/asha" }],
-    languages: [{ name: "English", proficiency: "Fluent" }],
-    education: [{ institution: "NID", degree: "B.Des", field: "Communication", start: "2014", end: "2018" }],
+    languages: [
+      { name: "English", read: true, write: true, speak: true },
+      { name: "Tamil", read: false, write: false, speak: true },
+    ],
+    education: [
+      { institution: "NID", degree: "B.Des", field: "Communication", start: "2014", end: "2018",
+        grade: "8.9 CGPA", honors: "Gold medal", description: "Studio work.", achievements: ["Best thesis"] },
+    ],
     authorizations: [{ country: "India", type: "Citizen", from: "", until: "", indefinite: true }],
     experiences: [
-      { company: "Forma", title: "Product Designer", type: "Full-time", start: "2023-03", end: "", current: true, promoted: false, description: "Design systems.", verification: "Unverified" },
-      { company: "Tiny Studio", title: "Designer", type: "Contract", start: "2020-06", end: "2023-02", current: false, promoted: true, description: "", verification: "Unverified" },
+      { company: "Forma", type: "Full-time", work_arrangement: "Hybrid", location_id: "1277333", location: "",
+        start: "2023-03", end: "", current: true, verification: "Unverified",
+        roles: [
+          { title: "Designer", start: "2023-03", end: "2024-01", promoted: false, responsibilities: "Design systems.", achievements: ["Shipped v1"] },
+          { title: "Product Designer", start: "2024-02", end: "", promoted: true, responsibilities: "", achievements: [] },
+        ] },
+      { company: "Tiny Studio", type: "Contract", work_arrangement: "", location_id: "", location: "",
+        start: "2020-06", end: "2023-02", current: false, verification: "Unverified",
+        roles: [{ title: "Designer", start: "2020-06", end: "2023-02", promoted: false, responsibilities: "", achievements: [] }] },
     ],
     ...overrides,
   };
@@ -123,7 +160,7 @@ test("before the first save you get an unsaved starter from your account", async
   assert.equal(p.saved, false);
   assert.equal(p.name, "asha Tester");
   assert.equal(p.email, "asha@example.com");
-  assert.match(p.slug, /^asha-tester-[0-9a-f]{4}$/);
+  assert.match(p.slug, /^asha-tester(-\d+)?$/, "handle from the name, -2, -3... when taken");
   for (const key of ["skills", "skill_groups", "experiences", "target_roles", "social_links", "education"])
     assert.ok(Array.isArray(p[key]), `${key} is an array`);
   assert.match(res.headers.get("cache-control"), /no-store/);
@@ -151,6 +188,19 @@ test("saving stores the whole profile against the shared reference data", async 
   assert.equal(p.experiences[1].company_slug, "", "unregistered company stays text");
   assert.equal(p.experiences[0].verification, "Unverified");
   assert.equal(p.experiences[1].end, "2023-02");
+  // Current status, the company → roles timeline and the details lists.
+  assert.equal(p.current_company, "Forma");
+  assert.equal(p.current_location_id, "1277333");
+  assert.equal(p.current_work_arrangement, "Hybrid");
+  assert.equal(p.current_work_type, "Full-time");
+  assert.match(p.location, /^Bengaluru, /, "label from the location tree, not the typed text");
+  assert.match(p.experiences[0].location, /^Bengaluru, /);
+  assert.deepEqual(p.experiences[0].roles.map((r) => [r.title, r.promoted]), [["Designer", false], ["Product Designer", true]]);
+  assert.deepEqual(p.experiences[0].roles[0].achievements, ["Shipped v1"]);
+  assert.equal(p.experiences[0].title, undefined, "no flat fields come back");
+  assert.deepEqual(p.languages[1], { name: "Tamil", read: false, write: false, speak: true });
+  assert.equal(p.education[0].grade, "8.9 CGPA");
+  assert.deepEqual(p.education[0].achievements, ["Best thesis"]);
 
   // Rows point at the shared tables: new names became pending terms there.
   const row = JSON.parse(sql(`SELECT json_build_object(
@@ -196,6 +246,12 @@ test("invalid profiles are rejected with a readable 400", async () => {
     "work mode": { work_mode: "Moon" },
     "serving notice without a date": { is_serving_notice: true, last_working_date: "" },
     "experience dates": { experiences: [{ ...base.experiences[1], end: "2019-01" }] },
+    "no roles": { experiences: [{ ...base.experiences[1], roles: [] }] },
+    "role outside employment": {
+      experiences: [{ ...base.experiences[1], roles: [{ ...base.experiences[1].roles[0], end: "2024-01" }] }],
+    },
+    "current location": { current_location_id: "999999999" },
+    "work arrangement": { current_work_arrangement: "Moon" },
     "social link": { social_links: [{ platform: "Site", url: "javascript:alert(1)" }] },
     "skill name": { skill_groups: [{ name: "Core", skills: ["<b>bold</b>"] }] },
   };
@@ -208,11 +264,34 @@ test("invalid profiles are rejected with a readable 400", async () => {
   assert.equal((await api("/me", { cookie: asha.cookie })).json.data.slug, base.slug);
 });
 
-test("profile handles are unique", async () => {
+test("profile handles are unique, and can be checked before saving", async () => {
+  const check = async (who, slug) => api(`/me/slug-availability?slug=${slug}`, { cookie: who.cookie });
+  assert.equal((await check(ravi, `asha-${tag}`)).json.data.available, false, "someone else's");
+  assert.equal((await check(asha, `asha-${tag}`)).json.data.available, true, "your own");
+  assert.equal((await check(ravi, `free-${tag}`)).json.data.available, true);
+  assert.equal((await check(ravi, "admin")).status, 400, "reserved");
+  assert.equal((await api(`/me/slug-availability?slug=x`)).status, 401);
+
   const starter = (await api("/me", { cookie: ravi.cookie })).json.data;
   const res = await save(ravi, filled(starter, { name: "Ravi Tester", experiences: [] }));
   assert.equal(res.status, 409);
   assert.equal((await save(ravi, filled(starter, { slug: `ravi-${tag}`, experiences: [] }))).status, 200);
+});
+
+test("an older client's flat experience and language proficiency still save", async () => {
+  const current = to_store((await api("/me", { cookie: ravi.cookie })).json.data);
+  const res = await save(ravi, {
+    ...current,
+    experiences: [{ company: "Old Co", title: "Analyst", type: "Full-time", start: "2019-01", end: "2020-01",
+      current: false, promoted: true, description: "Reports.", verification: "Unverified" }],
+    languages: [{ name: "Hindi", proficiency: "Fluent" }],
+  });
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+  const p = res.json.data;
+  assert.deepEqual(p.experiences[0].roles, [
+    { title: "Analyst", start: "2019-01", end: "2020-01", promoted: true, responsibilities: "Reports.", achievements: [] },
+  ]);
+  assert.deepEqual(p.languages, [{ name: "Hindi", read: true, write: true, speak: true }]);
 });
 
 test("company verification goes to the company's member requests", async () => {
@@ -226,6 +305,67 @@ test("company verification goes to the company's member requests", async () => {
   assert.match(unregistered.json.error, /isn't on Referise/);
   assert.equal((await api("/me/experiences/9/verification", { method: "POST", cookie: asha.cookie })).status, 404);
   assert.equal((await api("/me/experiences/x/verification", { method: "POST", cookie: asha.cookie })).status, 404, "proxy allowlist");
+});
+
+test("editing a verified experience sends it back for review without ending the membership", async () => {
+  // The company approves (the admin's approve route, done in SQL here).
+  sql(`UPDATE company_members SET status = 'current' WHERE company_id = 'forma' AND user_id = '${asha.user}';
+       UPDATE profile_experiences SET verification = 'verified' WHERE company_id = 'forma' AND user_id = '${asha.user}';`);
+  let current = to_store((await api("/me", { cookie: asha.cookie })).json.data);
+  assert.equal(current.experiences[0].verification, "Verified");
+
+  // Saving it unchanged keeps the tick; editing it puts it back in the queue.
+  let res = await save(asha, current);
+  assert.equal(res.json.data.experiences[0].verification, "Verified");
+  current.experiences[0].roles[1].achievements = ["Led research ops"]; // an edit inside a role
+  res = await save(asha, current);
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+  assert.equal(res.json.data.experiences[0].verification, "Pending");
+  assert.equal(sql(`SELECT status FROM company_members WHERE company_id = 'forma' AND user_id = '${asha.user}'`), "current");
+
+  // Pending already: asking again changes nothing.
+  const again = await api("/me/experiences/0/verification", { method: "POST", cookie: asha.cookie });
+  assert.equal(again.json.data.experiences[0].verification, "Pending");
+});
+
+test("privacy, salary period, availability and travel round-trip and shape the public view", async () => {
+  const current = to_store((await api("/me", { cookie: asha.cookie })).json.data);
+  const res = await save(asha, {
+    ...current,
+    visible: true,
+    expected_salary_visibility: "all",
+    current_salary_visibility: "applied",
+    contact_visibility: "applied",
+    expected_salary_period: "month",
+    availability: "Available from date",
+    available_from: "2027-01-15",
+    last_working_date: "2026-12-01", // dropped: not serving notice
+    notice_unit: "weeks",
+    notice_value: 6,
+    travel: "Up to 25%",
+  });
+  assert.equal(res.status, 200, JSON.stringify(res.json));
+  const p = res.json.data;
+  assert.equal(p.expected_salary_period, "month");
+  assert.equal(p.available_from, "2027-01-15");
+  assert.equal(p.last_working_date, "");
+  assert.equal(p.notice, "45 days", "6 weeks lands in the 45-day filter bucket");
+  assert.equal(p.travel, "Up to 25%");
+  assert.equal(to_store(p).expected, "$120,000 / month");
+  // Recruiters filter on a yearly INR figure.
+  const inr = Number(sql(`SELECT expected_salary_inr / (120000 * 12) FROM profiles WHERE user_id = '${asha.user}'`));
+  assert.equal(Number(sql(`SELECT rate_to_inr FROM exchange_rates WHERE currency = 'USD'`)).toFixed(4), inr.toFixed(4));
+
+  const pub = (await http(`/api/v1/profiles/asha-${tag}`, { base: BACKEND })).json.data;
+  assert.equal(pub.expected_salary, 120000, "visible to all");
+  assert.equal(pub.current_salary, 0, "applied jobs only");
+  assert.equal(pub.email, "", "applied jobs only");
+
+  const bad = await save(asha, { ...current, contact_visibility: "hidden" });
+  assert.equal(bad.status, 400, "contact can't be hidden from all");
+  assert.match(bad.json.error, /contact_visibility/);
+  // Leave the private defaults for the tests that follow.
+  assert.equal((await save(asha, current)).status, 200);
 });
 
 test("photo upload: real images only, served from /files", async () => {
@@ -265,7 +405,7 @@ test("public profile hides private details; private profiles are 404", async () 
   assert.equal(p.name, "asha Tester");
 
   const current = to_store((await api("/me", { cookie: asha.cookie })).json.data);
-  await save(asha, { ...current, contact_private: false, visible: true });
+  await save(asha, { ...current, contact_visibility: "all", visible: true });
   assert.equal((await http(`/api/v1/profiles/${slug}`, { base: BACKEND })).json.data.email, "asha@example.com");
   await save(asha, { ...current, visible: false });
   assert.equal((await http(`/api/v1/profiles/${slug}`, { base: BACKEND })).status, 404);

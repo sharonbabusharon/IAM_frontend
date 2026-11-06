@@ -21,11 +21,22 @@ export const premium_active = derived(
   [preview_account, membership_clock],
   ([$account, $clock]) => is_premium($account, $clock),
 );
+// Signed in: today's free applications from the server ({ limit, used,
+// remaining }); signed out: the browser preview count.
+export const server_quota = writable(/** @type {{ limit: number, used: number, remaining: number } | null} */ (null));
 export const applications_remaining = derived(
-  [preview_account, membership_settings, membership_clock],
-  ([$account, $settings, $clock]) =>
-    free_remaining($account, $settings, $clock),
+  [preview_account, membership_settings, membership_clock, server_quota],
+  ([$account, $settings, $clock, $quota]) =>
+    $quota ? $quota.remaining : free_remaining($account, $settings, $clock),
 );
+export async function load_quota() {
+  try {
+    const result = await (await fetch("/framework_api/applications/quota")).json();
+    server_quota.set(result?.ok ? result.data : null);
+  } catch {
+    /* Offline: keep the last count. */
+  }
+}
 let hydrated = false;
 export function hydrate_membership() {
   if (!browser || hydrated) return;
@@ -66,6 +77,19 @@ export function hydrate_membership() {
         /* Keep this visit usable. */
       }
     });
+  }
+  load_platform_settings();
+}
+// The daily free application limit is the platform's (admin-set) value;
+// prices and premium filters stay preview-only until billing exists.
+export async function load_platform_settings() {
+  try {
+    const result = await (await fetch("/framework_api/settings")).json();
+    const daily_free = result?.data?.daily_free_applications;
+    if (Number.isInteger(daily_free) && daily_free >= 0)
+      membership_settings.update((s) => ({ ...s, daily_free }));
+  } catch {
+    /* Offline or backend down: keep the last known limit. */
   }
 }
 export function buy_preview_premium(days) {

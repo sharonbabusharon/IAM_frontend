@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { backend_url } from '$lib/server/backend_api.js';
+import { client_headers } from '$lib/server/request_context.js';
 
 const file_pattern = /^(skills|designations|locations|rates)-\d{8}T\d{6}Z-[0-9a-f]{8}\.json$/;
 
@@ -10,7 +11,7 @@ export async function GET({ params, request }) {
     let response;
     try {
         response = await fetch(backend_url('/assets/' + params.file), {
-            headers: { 'if-none-match': request.headers.get('if-none-match') || '' },
+            headers: { ...client_headers(), 'if-none-match': request.headers.get('if-none-match') || '' },
             signal: AbortSignal.timeout(20000)
         });
     } catch {

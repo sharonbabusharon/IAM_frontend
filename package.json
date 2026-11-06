@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test:auth": "node --test tests/auth.test.js tests/auth_routes.test.js",
-    "test:portal": "node --test tests/portal_requirements.test.js tests/job_post_rules.test.js tests/ui_corrections.test.js",
+    "test:portal": "node --test tests/portal_requirements.test.js tests/job_post_rules.test.js tests/ui_corrections.test.js tests/my_skills.test.js",
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
@@ -13,7 +13,7 @@
     "check:portal": "svelte-kit sync && svelte-check --tsconfig ./jsconfig.portal.json"
   },
   "devDependencies": {
-    "@sveltejs/adapter-vercel": "^6.3.4",
+    "@sveltejs/adapter-node": "^5.2.12",
     "@sveltejs/kit": "^2.0.0",
     "@sveltejs/vite-plugin-svelte": "^3.0.0",
     "svelte": "^4.2.7",

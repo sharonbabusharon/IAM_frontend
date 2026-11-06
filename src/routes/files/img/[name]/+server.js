@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { backend_url } from '$lib/server/backend_api.js';
+import { client_headers } from '$lib/server/request_context.js';
 
 const name_pattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/;
 
@@ -9,7 +10,7 @@ export async function GET({ params }) {
     if (!name_pattern.test(params.name)) error(404, 'Not found');
     let response;
     try {
-        response = await fetch(backend_url('/files/img/' + params.name), { signal: AbortSignal.timeout(15000) });
+        response = await fetch(backend_url('/files/img/' + params.name), { headers: client_headers(), signal: AbortSignal.timeout(15000) });
     } catch {
         error(502, 'Image unavailable');
     }

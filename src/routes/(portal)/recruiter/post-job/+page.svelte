@@ -9,10 +9,11 @@
   } from "$lib/portal/reference.js";
   import { new_job_form, job_form_error } from "$lib/portal/job_post_rules.js";
   import { jobs_api } from "$lib/portal/jobs_api.js";
+  import { wallet_api, pay_for_job, rupees, request_topup } from "$lib/portal/payments.js";
   import { toast } from "$lib/portal/state.js";
   import Markdown_editor from "$lib/portal/markdown_editor.svelte";
   import Heading from "$lib/portal/page_heading.svelte";
-  import Location_picker from "$lib/portal/location_picker.svelte";
+  import Location_search from "$lib/portal/location_search.svelte";
   import Modal from "$lib/portal/modal.svelte";
   let form = { ...new_job_form(), relocation: "On their own" };
   let stages = "";
@@ -24,6 +25,9 @@
   let editing_id = "";
   let draft_id = "";
   let companies = [];
+  let fee_paise = 0; // the platform's paid-post fee (public settings)
+  let post_key = ""; // Idempotency-Key for this publish; reused if it's retried
+  let payment = ""; // "" | paying | pending: the out-of-pocket fee for `completed`
   $: skill_options = $skill_terms.map((term) => term.name);
   // Manual: interview rounds = the number of stages the recruiter lists.
   $: stage_list = stages
@@ -33,7 +37,12 @@
   $: form.rounds = stage_list.length;
   $: chosen_company = companies.find((c) => c.slug === form.company);
   on_mount(async () => {
-    const [mine, drafts] = await Promise.all([jobs_api.companies(), jobs_api.drafts()]);
+    const [mine, drafts, settings] = await Promise.all([
+      jobs_api.companies(),
+      jobs_api.drafts(),
+      fetch("/framework_api/settings").then((r) => r.json()).catch(() => null),
+    ]);
+    fee_paise = settings?.data?.job_post_fee_paise ?? 0;
     if (mine.status === 401) error = "Sign in to post a job.";
     companies = mine.ok ? mine.data : [];
     const edit_id = $page.url.searchParams.get("edit");
@@ -81,6 +90,38 @@
     form.application = "Easy apply";
   }
   $: if (!form.company) form.payment = "personal";
+  // Manual: company credits only when an approved company is picked and the
+  // remaining allowance covers the fee. Admins have no cap (null), only the wallet.
+  $: allowance = chosen_company?.credits_allowance_paise;
+  $: credits_ok = !!chosen_company && (allowance === null || allowance >= fee_paise);
+  $: paid = form.tier === "Premium" && fee_paise > 0;
+  // Manual "Explicit Confirmation Prompts": one variant per tier and payment.
+  $: display_name = chosen_company?.name || form.company_name || "Confidential";
+  $: variant = editing_id
+    ? { title: "Save changes", body: "Changes go live immediately. The tier, company and payment stay as they were.", action: "Save changes" }
+    : form.tier === "Free"
+      ? {
+          title: "Confirm Free Job Creation",
+          body: "You are posting a FREE job. This job will NOT be displayed on the public Job Search page or any official Company Page. Salary details will remain publicly visible on the post. You must manually copy and share the job link with candidates.",
+          action: "Confirm & Publish Free Job",
+        }
+      : form.payment === "credits"
+        ? {
+            title: "Confirm Payment via Company Credits",
+            body: `You are posting a PAID job using company credits from ${display_name}. This job will be published globally on the Job Search page and listed under ${display_name}’s official career page.`,
+            action: paid ? "Confirm & Deduct Credits" : "Publish job",
+          }
+        : form.company
+          ? {
+              title: "Confirm Out-of-Pocket Payment",
+              body: `You are paying out-of-pocket for a PAID job. As an approved member of ${display_name}, this job will appear on the global Job Search page AND on ${display_name}’s official company page.`,
+              action: paid ? "Proceed to Payment Gateway" : "Publish job",
+            }
+          : {
+              title: "Confirm Unlinked Paid Job",
+              body: `You are paying out-of-pocket for an UNLINKED PAID job. The job will appear globally on the main Job Search page (displaying ${display_name}), but will NOT be listed on any official company page.`,
+              action: paid ? "Proceed to Payment Gateway" : "Publish job",
+            };
   function toggle(key, value) {
     form = {
       ...form,
@@ -108,7 +149,12 @@
   function review() {
     error = job_form_error(form);
     if (!error && !form.salary_max) error = "Enter the maximum annual salary.";
-    if (!error) confirming = true;
+    if (!error && form.tier === "Premium" && form.payment === "credits" && !credits_ok)
+      error = "Your company allowance doesn’t cover this post. Pay out of pocket, or ask a company admin to raise your limit.";
+    if (!error) {
+      post_key ||= crypto.randomUUID();
+      confirming = true;
+    }
   }
   async function publish() {
     const input = {
@@ -134,15 +180,38 @@
       description: form.description,
     };
     saving = true;
-    const result = editing_id ? await jobs_api.edit(editing_id, input) : await jobs_api.post(input);
+    const result = editing_id ? await jobs_api.edit(editing_id, input) : await wallet_api.post_job(input, post_key);
     saving = false;
     confirming = false;
     if (!result.ok) {
       error = result.error;
+      // The company wallet is short: an admin can top it up right here.
+      if (result.status === 402 && result.data?.reason === "insufficient_balance" && chosen_company?.role === "admin")
+        request_topup({
+          company_slug: chosen_company.slug,
+          alert: `This post costs ${rupees(result.data.fee_paise)}; ${chosen_company.name}’s wallet has ${rupees(result.data.balance_paise)}.`,
+          need_paise: result.data.fee_paise - result.data.balance_paise,
+        });
       return;
     }
+    post_key = "";
     if (draft_id) jobs_api.delete_draft(draft_id);
     completed = result.data;
+    if (completed.checkout) pay(completed.checkout);
+  }
+  // Out of pocket: the job waits in pending_payment until Razorpay's webhook
+  // reports the fee paid. Without a checkout, ask the backend for a new order.
+  async function pay(checkout = null) {
+    payment = "paying";
+    const { outcome, error: failure } = await pay_for_job(completed.id, checkout);
+    if (outcome === "published") {
+      payment = "";
+      completed = { ...completed, status: "active", checkout: undefined };
+      toast("Payment received. Your job is live.");
+    } else {
+      payment = outcome === "pending" ? "pending" : "";
+      if (failure) toast(failure);
+    }
   }
 </script>
 
@@ -155,7 +224,21 @@
     accent="with a clear brief."
     description="Tell people what they’ll do, how they’ll work and what they can expect."
   />
-  {#if completed}<section class="workspace_panel review_success">
+  {#if completed?.status === "pending_payment"}<section class="workspace_panel review_success">
+      <span class="workspace_badge">AWAITING PAYMENT</span>
+      <h2>One step left: the posting fee.</h2>
+      <p>
+        {payment === "pending"
+          ? "Your payment went through. The job goes live as soon as Razorpay confirms it, usually within a few minutes."
+          : `Your job is saved but hidden until the ${rupees(fee_paise)} fee is paid.`}
+      </p>
+      <div class="workspace_actions" style="justify-content:center">
+        {#if payment !== "pending"}<button class="button button_dark" disabled={payment === "paying"} on:click={() => pay()}
+            >{payment === "paying" ? "Waiting for payment…" : "Pay to publish"}</button
+          >{/if}<a class="button button_outline" href="/recruiter/jobs">Manage jobs</a>
+      </div>
+    </section>
+  {:else if completed}<section class="workspace_panel review_success">
       <span class="workspace_badge green">{editing_id ? "UPDATED" : "PUBLISHED"}</span>
       <h2>A new possibility, out in the world.</h2>
       <p>
@@ -213,10 +296,14 @@
                 bind:value={form.payment}
                 ><option value="personal">Out of pocket</option><option
                   value="credits"
-                  disabled={!form.company}>Company credits</option
+                  disabled={!credits_ok}>Company credits</option
                 ></select
               ></label
-            >{/if}
+            >{#if chosen_company && allowance !== null}<p class="form_helper">
+                Your remaining company allowance: {rupees(allowance)}.{allowance < fee_paise
+                  ? " Not enough for this post: pay out of pocket, or ask a company admin to raise it."
+                  : ""}
+              </p>{/if}{/if}
         </section>
         <section class="workspace_panel">
           <h2>02 / The work</h2>
@@ -281,10 +368,10 @@
             /></label
           >
           <fieldset>
-            <legend>Eligible work locations *</legend><Location_picker
+            <legend>Eligible work locations *</legend><Location_search
+              label=""
               bind:selected={form.locations}
               bind:worldwide={form.worldwide}
-              allow_worldwide
             />
           </fieldset>
         </section>
@@ -396,7 +483,7 @@
             </div>
             <div>
               <dt>Posting fee</dt>
-              <dd>{form.tier === "Free" ? "₹0" : "Set by the platform (₹0 for now)"}</dd>
+              <dd>{form.tier === "Free" ? "₹0" : rupees(fee_paise)}</dd>
             </div>
           </dl>
           <div class="workspace_actions">
@@ -410,38 +497,26 @@
           </div>
           {#if error}<p class="filter_error" role="alert">{error}</p>{/if}
           <p class="work_note">
-            Drafts are saved to your account. Paid posts are free while the
-            platform fee is ₹0; card and credit payments arrive later.
+            Drafts are saved to your account. Paid posts are charged when you
+            publish: from company credits, or out of pocket by UPI, card or net
+            banking.
           </p>
         </section>
       </aside>
     </form>{/if}
 </main>
-{#if confirming}<Modal
-    title={form.tier === "Free" ? "Review free job" : "Review paid job"}
-    on:close={() => (confirming = false)}
+{#if confirming}<Modal title={variant.title} on:close={() => (confirming = false)}
     ><div class="workspace_hint">
       <h3>{form.title}</h3>
-      <p>
-        {form.tier === "Free"
-          ? "This job will be accessible by direct link only. It will not appear in public search or on a company page. Salary is public."
-          : form.company
-            ? "This job is intended for public search and your approved company page."
-            : "This unlinked job is intended for public search only. It will not appear on an official company page."}
-      </p>
-      {#if form.tier === "Premium"}<p>
-          Payment method: {form.payment === "credits" ? "Company credits" : "Out of pocket"}.
+      <p>{variant.body}</p>
+      {#if !editing_id && form.tier === "Premium"}<p>
+          Posting fee: {paid ? rupees(fee_paise) : "₹0 (free for now)"}.
         </p>{/if}
     </div>
-    <p class="form_helper">
-      {editing_id ? "Changes go live immediately." : "Your job goes live as soon as you confirm."}
-    </p>
     <div class="form_actions">
-      <button
-        class="button button_outline"
-        on:click={() => (confirming = false)}>Keep editing</button
+      <button class="button button_outline" on:click={() => (confirming = false)}>Go Back</button
       ><button class="button button_dark" disabled={saving} on:click={publish}
-        >{saving ? "Publishing…" : editing_id ? "Save changes" : "Publish job"}</button
+        >{saving ? "Publishing…" : variant.action}</button
       >
     </div></Modal
   >{/if}

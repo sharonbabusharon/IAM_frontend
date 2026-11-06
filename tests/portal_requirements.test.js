@@ -158,6 +158,7 @@ test("hidden salary amounts never render or participate in client salary matchin
   };
   assert.equal(salary(hidden), "Competitive");
   assert.equal(converted_salary(hidden, "USD"), "Competitive");
+  assert.equal(converted_salary(hidden, "USD", undefined, "Matches your search parameters"), "Matches your search parameters");
   assert.equal(search({}, [hidden]).length, 1);
   assert.equal(search({ min_salary: 1 }, [hidden]).length, 0);
 });
@@ -243,7 +244,7 @@ test("editing a draft does not change applied filters", () => {
   assert.deepEqual(filter_jobs(jobs, applied), before);
   assert.equal(filter_jobs(jobs, draft).length, 0);
 });
-test("profile migration retains existing privacy and rejects malformed nested data", () => {
+test("profile migration keeps restricted fields private and rejects malformed nested data", () => {
   const restored = restore_profile(
     {
       name: "Test Person",
@@ -258,23 +259,54 @@ test("profile migration retains existing privacy and rejects malformed nested da
     default_profile,
   );
   assert.equal(restored.name, "Test Person");
-  assert.equal(restored.salary_private, true);
-  assert.equal(restored.resume_private, true);
-  assert.equal(restored.contact_private, true);
+  // The old booleans map to nothing: every restricted field stays at its private default.
+  assert.equal(restored.current_salary_visibility, "hidden");
+  assert.equal(restored.expected_salary_visibility, "applied");
+  assert.equal(restored.resume_visibility, "applied");
+  assert.equal(restored.contact_visibility, "applied");
   assert.deepEqual(restored.languages, default_profile.languages);
   assert.deepEqual(restored.social_links, []);
   assert.equal(restored.current_salary, default_profile.current_salary);
   assert.equal(restored.notice, "Immediate");
-  restored.experiences[0].title = "Changed";
-  assert.notEqual(default_profile.experiences[0].title, "Changed");
+  restored.experiences[0].roles[0].title = "Changed";
+  assert.notEqual(default_profile.experiences[0].roles[0].title, "Changed");
+  // Old flat experiences and proficiency languages don't pass the shape check.
+  const old = restore_profile(
+    {
+      experiences: [{ company: "Forma", title: "Designer", type: "Full-time", start: "2023-03", end: "", current: true, promoted: false, description: "", verification: "Unverified" }],
+      languages: [{ name: "English", proficiency: "Fluent" }],
+    },
+    default_profile,
+  );
+  assert.deepEqual(old.experiences, default_profile.experiences);
+  assert.deepEqual(old.languages, default_profile.languages);
+});
+test("profile validation keeps each role within its employment period", () => {
+  const p = structuredClone(default_profile);
+  assert.equal(profile_error(p), "");
+  p.experiences[1].roles[0].start = "2019-01"; // before joining Layers
+  assert.match(profile_error(p), /start within/);
+  p.experiences[1].roles[0].start = "2020-06";
+  p.experiences[1].roles[0].end = "2024-01"; // after leaving
+  assert.match(profile_error(p), /end within/);
+  p.experiences[1].roles[0].end = "";
+  assert.equal(profile_error(p), "", "a past record's open role ends with the record");
+  p.experiences[0].roles = [];
+  assert.match(profile_error(p), /at least one role/);
 });
 test("profile validation catches reserved handles, date inversions and missing availability", () => {
   assert.equal(profile_error(default_profile), "");
   assert.match(profile_error({ ...default_profile, slug: "admin" }), /handle/);
   assert.match(
-    profile_error({ ...default_profile, is_serving_notice: true }),
+    profile_error({ ...default_profile, availability: "Serving notice" }),
     /working date/,
   );
+  assert.match(
+    profile_error({ ...default_profile, availability: "Available from date" }),
+    /available from/,
+  );
+  assert.match(profile_error({ ...default_profile, notice_unit: "months", notice_value: 13 }), /notice period/);
+  assert.equal(profile_error({ ...default_profile, notice_unit: "weeks", notice_value: 52 }), "");
   const draft = structuredClone(default_profile);
   draft.experiences[0].current = false;
   draft.experiences[0].end = "2020-01";
@@ -307,4 +339,33 @@ test("salaries show in the original currency until rates are known", () => {
   const job = { salary_min: 100, salary_max: 200, currency: "USD", salary_hidden: false };
   assert.match(converted_salary(job, "JPY", { INR: 1, USD: 85 }), /^\$100–\$200/);
   assert.match(converted_salary(job, "INR", { INR: 1, USD: 85 }), /₹8,500–₹17,000/);
+});
+
+test("landing counters come from the stats API, shown rounded down", async () => {
+  const { platform_metrics, metric_value } = await import("../src/lib/portal/landing_content.js");
+  assert.deepEqual(
+    platform_metrics.map((m) => m.key),
+    ["registered_users", "hr_professionals", "companies", "open_jobs", "countries_with_users", "countries_with_jobs_companies"],
+  );
+  for (const [n, want] of [[0, "0"], [9, "9"], [999, "999"], [1000, "1K+"], [1290, "1.2K+"], [25400, "25K+"], [100000, "100K+"], [3456789, "3.4M+"], [null, "0"]])
+    assert.equal(metric_value(n), want, `metric_value(${n})`);
+});
+
+test("after the consent page, only same-site paths are followed", async () => {
+  const { safe_next, consent_open_paths } = await import("../src/lib/portal/legal_documents.js");
+  assert.equal(safe_next("/jobs?q=1"), "/jobs?q=1");
+  for (const bad of ["//evil.com", "/" + String.fromCharCode(92) + "evil.com", "https://evil.com", "", null, undefined])
+    assert.equal(safe_next(bad), "/", String(bad));
+  assert.deepEqual(consent_open_paths, ["/consent", "/terms", "/privacy", "/cookies"]);
+});
+
+test("backend calls forward the real client's IP and User-Agent, only inside a request", async () => {
+  const { run_with_request, client_headers } = await import("../src/lib/server/request_context.js");
+  assert.deepEqual(client_headers(), {}, "outside a request (e.g. a scheduled call) nothing is added");
+  const inside = await run_with_request({ ip: "203.0.113.7", user_agent: "Mozilla/5.0" }, async () => {
+    await new Promise((r) => setTimeout(r, 5)); // survives awaits, as in a load function
+    return client_headers();
+  });
+  assert.deepEqual(inside, { "X-Forwarded-For": "203.0.113.7", "User-Agent": "Mozilla/5.0" });
+  assert.deepEqual(await run_with_request({ ip: "", user_agent: "" }, async () => client_headers()), {});
 });

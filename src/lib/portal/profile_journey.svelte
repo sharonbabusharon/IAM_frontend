@@ -31,7 +31,7 @@
       result.push({
         label: item.start?.slice(0, 4) || "Next",
         title: item.company,
-        detail: item.title,
+        detail: item.roles?.map((role) => role.title).join(" → ") ?? "",
         href: `#experience-${item.index}`,
       });
     });

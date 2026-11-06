@@ -24,6 +24,26 @@ export const location_index = derived(
 /** Country -> region -> city tree; cities are the selectable leaves. */
 export const location_tree = derived(locations, build_location_tree);
 
+/** Every country in the location data, A-Z: [{ code: "IN", name: "India", flag: "🇮🇳" }]. */
+export const countries = derived(locations, (list) =>
+  list
+    .filter((l) => l.level === "country" && /^[A-Z]{2}$/i.test(l.country_code ?? ""))
+    .map((l) => ({ code: l.country_code.toUpperCase(), name: l.name, flag: flag_emoji(l.country_code) }))
+    .sort((a, b) => a.name.localeCompare(b.name)),
+);
+
+/** Name contains the query (accents ignored), or the ISO code starts with it. Keeps A-Z order. */
+export function filter_countries(list, query) {
+  const fold = (s) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const needle = fold(query.trim());
+  if (!needle) return list;
+  return list.filter((c) => fold(c.name).includes(needle) || c.code.toLowerCase().startsWith(needle));
+}
+
+/** "in" -> "🇮🇳" (two regional-indicator symbols). */
+export const flag_emoji = (code) =>
+  String.fromCodePoint(...[...code.toUpperCase()].map((c) => 0x1f1a5 + c.charCodeAt(0)));
+
 /** Store of a function: $location_label(id) -> "Bengaluru" (falls back to the id). */
 export const location_label = derived(
   location_index,

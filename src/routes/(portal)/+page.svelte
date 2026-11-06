@@ -16,46 +16,49 @@
     filter_error,
   } from "$lib/portal/search.js";
   import Modal from "$lib/portal/modal.svelte";
-  import { companies, jobs } from "$lib/portal/data";
+  import { companies_api, image_url } from "$lib/portal/companies_api.js";
+  import { location_label, location_tree } from "$lib/portal/reference.js";
+  import Location_select from "$lib/portal/location_select.svelte";
+  import { company_sizes } from "$lib/portal/filter_options.js";
   import { search_filters, viewing_currency, toast } from "$lib/portal/state";
   import {
     platform_metrics,
+    metric_value,
     landing_faqs,
     preview_topics,
   } from "$lib/portal/landing_content";
+  // Platform counters from GET /stats (null when the backend couldn't be reached).
+  export let data;
   import "$lib/portal/landing.css";
 
   let advanced = default_filters();
   let query = "";
-  let location = "";
+  // Company search (newer doc §5): name, country, city (HQ or office), industry, size.
+  let company = { country: "", city: "", industry: "", size: "" };
   let job_location = "";
   let work_mode = "";
   let search_type = "jobs";
-  let company_query = "";
-  let company_location = "";
-  let company_country = "";
   let topic = "";
   let mobile_menu = false;
   let motion_paused = false;
   let page_root;
-  $: visible_companies = companies.filter(
-    (company) =>
-      `${company.name} ${company.sector} ${company.description}`
-        .toLowerCase()
-        .includes(company_query.toLowerCase()) &&
-      company.location.toLowerCase().includes(company_location.toLowerCase()) &&
-      company.location.toLowerCase().includes(company_country.toLowerCase()),
-  );
-
-  $: displayed_companies =
-    company_query || company_location || company_country
-      ? visible_companies
-      : visible_companies.slice(0, 3);
+  // A few real teams from the company directory (first page of search).
+  let featured_companies = [];
+  on_mount(async () => {
+    // Arriving from account deletion (/auth/account): say it worked, then tidy the URL.
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("account_deleted")) {
+      toast("Your Referise account was deleted. You’ve been signed out everywhere.");
+      url.searchParams.delete("account_deleted");
+      history.replaceState(history.state, "", url);
+    }
+    const result = await companies_api.search({ page: 1, page_size: 3 });
+    if (result.ok) featured_companies = result.data.companies;
+  });
 
   on_mount(() => {
     const previous = get(search_filters);
     query = previous.query;
-    location = previous.location;
     work_mode = previous.modes.length === 1 ? previous.modes[0] : "";
     advanced = { ...default_filters(), currency: previous.currency };
     const reduced_motion = window.matchMedia(
@@ -103,9 +106,10 @@
 
   function search() {
     if (search_type === "companies") {
-      goto(
-        `/companies?q=${encodeURIComponent(query.trim())}&location=${encodeURIComponent(location.trim())}`,
-      );
+      const params = new URLSearchParams();
+      if (query.trim()) params.set("q", query.trim());
+      for (const [key, value] of Object.entries(company)) if (value.trim()) params.set(key, value.trim());
+      goto(`/companies${params.size ? `?${params}` : ""}`);
       return;
     }
     const remote = advanced.worldwide;
@@ -283,17 +287,12 @@
                 bind:worldwide={advanced.worldwide}
               />{:else}<label
                 ><Icon name="search" size={20} /><input
-                  aria-label="Company name or industry"
+                  aria-label="Company name"
                   bind:value={query}
-                  placeholder="Company name or industry"
+                  maxlength="100"
+                  placeholder="Company name"
                 /></label
-              ><label
-                ><Icon name="location" size={19} /><input
-                  aria-label="Company location"
-                  bind:value={location}
-                  placeholder="Company location"
-                /></label
-              >{/if}
+              ><Location_select label="City (HQ or office)" bind:value={company.city} />{/if}
             <button class="r_button blue" type="submit"
               >{search_type === "jobs"
                 ? "Find my next role"
@@ -304,7 +303,7 @@
             >
           </div>
           <div class="search_filters">
-            <span>How do you like to work?</span
+            <span>{search_type === "jobs" ? "How do you like to work?" : "Narrow it down"}</span
             >{#if search_type === "jobs"}<label
                 ><span class="sr_only">Workplace</span><select
                   aria-label="Workplace"
@@ -319,6 +318,24 @@
                   name="arrow-right"
                   size={14}
                 /></a
+              >{:else}<label
+                ><span class="sr_only">Country</span><select aria-label="Headquarters country" bind:value={company.country}
+                  ><option value="">Any country</option>{#each $location_tree as c (c.id)}<option value={c.country_code}
+                      >{c.name}</option
+                    >{/each}</select
+                ></label
+              ><label
+                ><span class="sr_only">Industry</span><input
+                  class="company_industry"
+                  aria-label="Industry"
+                  placeholder="Any industry"
+                  maxlength="25"
+                  bind:value={company.industry}
+                /></label
+              ><label
+                ><span class="sr_only">Company size</span><select aria-label="Company size" bind:value={company.size}
+                  ><option value="">Any size</option>{#each company_sizes as s}<option>{s}</option>{/each}</select
+                ></label
               >{/if}
           </div>
         </form>
@@ -333,7 +350,7 @@
         </div>
       </div>
     </section>
-    <section class="reach_section" id="global-reach">
+    {#if data.stats}<section class="reach_section" id="global-reach">
       <div class="landing_container reach_layout">
         <div class="reach_intro">
           <span class="section_kicker">04 / A BIGGER WORLD OF WORK</span>
@@ -342,7 +359,9 @@
             Talent doesn’t have a postcode.<br />Neither should opportunity.
           </p>
           <span class="metrics_note"
-            >Illustrative platform figures<br />Planned daily updates</span
+            >Updated daily{#if data.stats.computed_at}<br />As of {new Date(
+                data.stats.computed_at,
+              ).toLocaleDateString("en", { dateStyle: "medium" })}{/if}</span
           ><svg
             class="reach_globe"
             width="130"
@@ -359,14 +378,13 @@
         </div>
         <div class="reach_grid">
           {#each platform_metrics as metric}<article>
-              <strong>{metric.value}</strong>
+              <strong>{metric_value(data.stats[metric.key])}</strong>
               <h3>{metric.label}</h3>
               <p>{metric.detail}</p>
-              <span>{metric.note}</span>
             </article>{/each}
         </div>
       </div>
-    </section>
+    </section>{/if}
     <section class="opportunities_section landing_container" id="opportunities">
       <div class="landing_section_heading">
         <div>
@@ -420,75 +438,33 @@
         </div>
         <div class="teams_directory">
           <div class="directory_heading">
-            <span>TEAMS TO GET TO KNOW</span><span
-              >Sample company directory <Icon
-                name="arrow-right"
-                size={14}
-              /></span
+            <span>TEAMS TO GET TO KNOW</span><a href="/companies"
+              >All companies <Icon name="arrow-right" size={14} /></a
             >
           </div>
-          <div class="company_search_status" aria-live="polite">
-            {#if company_query || company_location || company_country}<p>
-                {visible_companies.length} sample {visible_companies.length ===
-                1
-                  ? "company"
-                  : "companies"} matching {company_query
-                  ? `“${company_query}”`
-                  : "your search"}{company_location || company_country
-                  ? ` in ${[company_location, company_country].filter(Boolean).join(", ")}`
-                  : ""}.
-              </p>
-              <button
-                on:click={() => {
-                  company_query = "";
-                  company_location = "";
-                  company_country = "";
-                }}>Clear search</button
-              >{/if}
-          </div>
           <div class="teams_grid">
-            {#each displayed_companies as company}<button
+            {#each featured_companies as company (company.id)}<button
                 class="team_card"
-                on:click={() => goto(`/company/${company.id}`)}
-                ><Company_logo id={company.id} size={52} />
+                on:click={() => goto(`/company/${company.slug}`)}
+                ><Company_logo id={company.id} src={image_url(company.logo_url)} size={52} />
                 <div>
                   <h3>{company.name}</h3>
                   <p>{company.tagline}</p>
                   <div class="team_tags">
-                    <span>{company.sector}</span><span>{company.location}</span
-                    ><span>{company.size}</span>
+                    {#if company.industries[0]}<span>{company.industries[0]}</span>{/if}{#if company.hq_location_id}<span
+                        >{$location_label(company.hq_location_id)}</span
+                      >{/if}{#if company.size}<span>{company.size}</span>{/if}
                   </div>
                 </div>
-                <span class="team_openings"
-                  ><strong
-                    >{jobs.filter(
-                      (job) =>
-                        job.company === company.id &&
-                        !job.unlisted &&
-                        job.tier !== "Free" &&
-                        job.posted <= 30,
-                    ).length}</strong
-                  >open roles</span
-                ><span class="team_arrow"
-                  ><Icon name="arrow-up-right" size={21} /></span
-                ></button
-              >{/each}
+                <span class="team_arrow"><Icon name="arrow-up-right" size={21} /></span></button
+              >{:else}<div class="company_empty">
+                <h3>Teams are joining.</h3>
+                <p>Be one of the first companies people get to know here.</p>
+                <a class="r_button lime" href="/company/create"
+                  >Create a company <Icon name="arrow-right" size={16} /></a
+                >
+              </div>{/each}
           </div>
-          {#if !visible_companies.length}<div class="company_empty">
-              <h3>No matches just yet.</h3>
-              <p>
-                Try a name like Forma, or take a look at all our sample teams.
-              </p>
-              <button
-                class="r_button lime"
-                on:click={() => {
-                  company_query = "";
-                  company_location = "";
-                  company_country = "";
-                }}
-                >Show sample teams <Icon name="arrow-right" size={16} /></button
-              >
-            </div>{/if}
           <div class="hiring_invitation">
             <Icon name="building" size={22} />
             <div>

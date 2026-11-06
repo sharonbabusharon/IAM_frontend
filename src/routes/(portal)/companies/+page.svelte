@@ -8,28 +8,35 @@
   import Company_logo from "$lib/portal/company_logo.svelte";
   import { location_label, location_tree } from "$lib/portal/reference.js";
   import { companies_api, image_url } from "$lib/portal/companies_api.js";
-  const sizes = ["1–10 people", "11–50 people", "51–200 people", "201–500 people", "501–1,000 people", "1,001–5,000 people", "5,000+ people"];
+  import Location_select from "$lib/portal/location_select.svelte";
+  import { company_sizes as sizes } from "$lib/portal/filter_options.js";
   const page_size = 20;
   let query = "";
   let country = "";
+  let city = ""; // HQ or any branch in this city (GeoNames id)
   let size = "";
+  let industry = "";
   let result = null;
   let error = "";
   let loading = false;
   let current_page = 1;
   // Search state lives in the URL, so a search can be shared or revisited.
   $: params = $page.url.searchParams;
-  $: if (browser) run(params.get("q") || "", params.get("country") || "", params.get("size") || "", Number(params.get("page")) || 1);
-  async function run(q, c, s, p) {
+  $: if (browser) run(params.get("q") || "", params.get("country") || "", params.get("city") || "", params.get("size") || "", params.get("industry") || "", Number(params.get("page")) || 1);
+  async function run(q, c, ci, s, ind, p) {
     query = q;
     country = c;
+    city = /^[1-9][0-9]{0,11}$/.test(ci) ? ci : "";
     size = s;
+    industry = ind.slice(0, 25);
     current_page = p;
     loading = true;
     const response = await companies_api.search({
       query: q,
       countries: c ? [c] : [],
+      location_ids: city ? [city] : [],
       sizes: s ? [s] : [],
+      industries: industry.trim() ? [industry] : [],
       page: p,
       page_size,
     });
@@ -41,7 +48,9 @@
     const next = new URLSearchParams();
     if (query.trim()) next.set("q", query.trim());
     if (country) next.set("country", country);
+    if (city) next.set("city", city);
     if (size) next.set("size", size);
+    if (industry.trim()) next.set("industry", industry.trim());
     if (p > 1) next.set("page", String(p));
     goto(`?${next}`, { keepFocus: true, noScroll: p === 1 });
   }
@@ -66,7 +75,14 @@
       ><option value="">Any country</option>{#each $location_tree as c (c.id)}<option
           value={c.country_code}>{c.name}</option
         >{/each}</select
-    ><select aria-label="Company size" bind:value={size}
+    ><Location_select label="City (HQ or office)" bind:value={city} /><input
+      aria-label="Industry"
+      placeholder="Industry"
+      maxlength="25"
+      bind:value={industry}
+    /><select
+      aria-label="Company size"
+      bind:value={size}
       ><option value="">Any size</option>{#each sizes as s}<option>{s}</option
         >{/each}</select
     ><button class="button button_dark"

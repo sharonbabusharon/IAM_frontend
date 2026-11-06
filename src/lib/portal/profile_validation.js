@@ -19,20 +19,30 @@ const arrays = {
   languages: (item) =>
     shape(item, [
       ["name", "string"],
-      ["proficiency", "string"],
+      ["read", "boolean"],
+      ["write", "boolean"],
+      ["speak", "boolean"],
     ]),
   experiences: (item) =>
     shape(item, [
       ["company", "string"],
-      ["title", "string"],
       ["type", "string"],
       ["start", "string"],
       ["end", "string"],
       ["current", "boolean"],
-      ["promoted", "boolean"],
-      ["description", "string"],
       ["verification", "string"],
-    ]),
+    ]) &&
+    Array.isArray(item.roles) &&
+    item.roles.every(
+      (role) =>
+        shape(role, [
+          ["title", "string"],
+          ["start", "string"],
+          ["end", "string"],
+          ["promoted", "boolean"],
+          ["responsibilities", "string"],
+        ]) && Array.isArray(role.achievements),
+    ),
   authorizations: (item) =>
     shape(item, [
       ["country", "string"],
@@ -41,6 +51,14 @@ const arrays = {
       ["until", "string"],
       ["indefinite", "boolean"],
     ]),
+  projects: (item) =>
+    shape(item, [
+      ["title", "string"],
+      ["description", "string"],
+      ["url", "string"],
+    ]) &&
+    Array.isArray(item.tags) &&
+    item.tags.every(text),
   education: (item) =>
     shape(item, [
       ["institution", "string"],
@@ -54,11 +72,7 @@ export function restore_profile(stored, defaults) {
   const next = structuredClone(defaults);
   if (!stored || typeof stored !== "object" || Array.isArray(stored))
     return next;
-  const old_keys = {
-    salary_private: "salaryPrivate",
-    resume_private: "resumePrivate",
-    work_mode: "workMode",
-  };
+  const old_keys = { work_mode: "workMode" };
   for (const key of Object.keys(defaults)) {
     const value = stored[key] ?? stored[old_keys[key]];
     if (arrays[key]) {
@@ -108,13 +122,33 @@ export function profile_error(profile) {
     )
   )
     return "An experience cannot end before it starts.";
+  for (const entry of profile.experiences) {
+    if (!entry.roles?.length) return `Add at least one role at ${entry.company || "each company"}.`;
+    for (const role of entry.roles) {
+      if (!role.title.trim()) return `Give each role at ${entry.company || "this company"} a title.`;
+      if (!role.start || role.start < entry.start)
+        return `Each role at ${entry.company || "this company"} must start within the employment period.`;
+      const end = role.end || (entry.current ? "" : entry.end);
+      if (end && (end < role.start || (!entry.current && end > entry.end)))
+        return `Each role at ${entry.company || "this company"} must end within the employment period.`;
+    }
+  }
   if (
     profile.authorizations.some(
       (entry) => !entry.indefinite && entry.until < entry.from,
     )
   )
     return "Authorization expiry cannot be before its start date.";
-  if (profile.is_serving_notice && !profile.last_working_date)
+  if (profile.availability === "Serving notice" && !profile.last_working_date)
     return "Add your last working date.";
+  if (profile.availability === "Available from date" && !profile.available_from)
+    return "Add the date you're available from.";
+  if (
+    profile.notice_unit &&
+    (!Number.isInteger(Number(profile.notice_value)) ||
+      Number(profile.notice_value) < 0 ||
+      Number(profile.notice_value) * { days: 1, weeks: 7, months: 30 }[profile.notice_unit] > 365)
+  )
+    return "A notice period is 0 to 365 days, 52 weeks or 12 months.";
   return "";
 }

@@ -1,8 +1,53 @@
 <script>
-  import Location_picker from "./location_picker.svelte";
-  import { work_types, relocation_options } from "./filter_options.js";
+  import Location_search from "./location_search.svelte";
+  import Location_select from "./location_select.svelte";
+  import Country_select from "./country_select.svelte";
+  import { countries } from "./reference.js";
+  import { profile_api } from "./profile_api.js";
+  import {
+    work_types,
+    relocation_options,
+    availability_options,
+    travel_options,
+    salary_periods,
+  } from "./filter_options.js";
   export let draft;
   export let section;
+
+  // Live handle check (manual "Profile URL Slug"): debounced, latest answer wins.
+  const initial_slug = draft.slug;
+  let slug_note = "";
+  let slug_timer;
+  let slug_seq = 0;
+  function check_slug(slug) {
+    clearTimeout(slug_timer);
+    slug_note = "";
+    if (slug === initial_slug || !/^[a-z0-9-]{3,50}$/.test(slug)) return;
+    const seq = ++slug_seq;
+    slug_timer = setTimeout(async () => {
+      const result = await profile_api.slug_available(slug);
+      if (seq !== slug_seq || result.status === 401) return; // stale, or the signed-out preview
+      slug_note = !result.ok
+        ? result.error
+        : result.data.available
+          ? "Available."
+          : "Taken: try another handle, e.g. with a number at the end.";
+    }, 400);
+  }
+  $: if (section === "profile") check_slug(draft.slug);
+
+  const arrangements = ["On-site", "Hybrid", "Remote"];
+  const blank_role = (start = "") => ({
+    title: "",
+    start,
+    end: "",
+    promoted: false,
+    responsibilities: "",
+    achievements: [],
+  });
+  // Achievements are edited one per line.
+  const lines = (text) => text.split("\n").map((l) => l.trim()).filter(Boolean);
+
   function toggle(key, value) {
     draft = {
       ...draft,
@@ -32,9 +77,8 @@
           pattern="[a-z0-9\-]+"
           bind:value={draft.slug}
           required
-        /><small
-          >Lowercase letters, numbers and hyphens. Availability will be checked
-          when accounts are connected.</small
+        /><small aria-live="polite"
+          >{slug_note || "Lowercase letters, numbers and hyphens."}</small
         ></label
       >
       <label class="field_label"
@@ -118,7 +162,7 @@
         ></label
       >
       <label class="field_label"
-        >Current annual salary<input
+        >Current salary<input
           class="field_input"
           type="number"
           min="0"
@@ -128,7 +172,15 @@
         /></label
       >
       <label class="field_label"
-        >Minimum expected annual salary<input
+        >Current salary is paid per<select
+          class="field_input"
+          bind:value={draft.current_salary_period}
+          >{#each salary_periods as period}<option value={period}>{period}</option
+            >{/each}</select
+        ></label
+      >
+      <label class="field_label"
+        >Minimum expected salary<input
           class="field_input"
           type="number"
           min="0"
@@ -137,6 +189,14 @@
           required
           bind:value={draft.expected_salary}
         /></label
+      >
+      <label class="field_label"
+        >Expected salary is per<select
+          class="field_input"
+          bind:value={draft.expected_salary_period}
+          >{#each salary_periods as period}<option value={period}>{period}</option
+            >{/each}</select
+        ></label
       >
       <label class="field_label"
         >Hourly rate for gigs · optional<input
@@ -149,18 +209,55 @@
         /></label
       >
     </div>
-    <label class="profile_field_check"
-      ><input type="checkbox" bind:checked={draft.is_serving_notice} />I’m
-      serving my notice period</label
-    >
-    {#if draft.is_serving_notice}<label class="field_label"
-        >Last working date<input
+    <h3>Availability</h3>
+    <div class="form_grid">
+      <label class="field_label"
+        >Availability<select class="field_input" bind:value={draft.availability}
+          ><option value="">Not specified</option
+          >{#each availability_options as option}<option>{option}</option
+            >{/each}</select
+        ></label
+      >
+      {#if draft.availability === "Serving notice"}<label class="field_label"
+          >Last working date<input
+            class="field_input"
+            type="date"
+            required
+            bind:value={draft.last_working_date}
+          /></label
+        >{:else if draft.availability === "Available from date"}<label
+          class="field_label"
+          >Available from<input
+            class="field_input"
+            type="date"
+            required
+            bind:value={draft.available_from}
+          /></label
+        >{/if}
+      <label class="field_label"
+        >Notice period<input
           class="field_input"
-          type="date"
-          required
-          bind:value={draft.last_working_date}
+          type="number"
+          min="0"
+          max="365"
+          step="1"
+          bind:value={draft.notice_value}
         /></label
-      >{/if}
+      >
+      <label class="field_label"
+        >Notice unit<select class="field_input" bind:value={draft.notice_unit}
+          ><option value="days">Days</option><option value="weeks">Weeks</option
+          ><option value="months">Months</option></select
+        ></label
+      >
+      <label class="field_label"
+        >Travel<select class="field_input" bind:value={draft.travel}
+          ><option value="">No preference</option
+          >{#each travel_options as option}<option>{option}</option
+            >{/each}</select
+        ></label
+      >
+    </div>
     <fieldset>
       <legend>Preferred employment types</legend>
       <div class="profile_choice_grid">
@@ -174,7 +271,9 @@
       </div>
     </fieldset>
     <fieldset>
-      <legend>Preferred locations</legend><Location_picker
+      <legend>Preferred locations</legend><Location_search
+        label=""
+        allow_worldwide={false}
         bind:selected={draft.preferred_locations}
       /><label class="profile_field_check"
         ><input type="checkbox" bind:checked={draft.open_to_remote} />Open to
@@ -199,27 +298,28 @@
             >Company<input
               class="field_input"
               required
-              maxlength="100"
+              maxlength="150"
               bind:value={experience.company}
             /></label
           >
           <label class="field_label"
-            >Designation<input
-              class="field_input"
-              required
-              maxlength="100"
-              bind:value={experience.title}
-            /></label
-          >
-          <label class="field_label"
-            >Employment type<select
+            >Work type<select
               class="field_input"
               bind:value={experience.type}
               >{#each work_types as type}<option>{type}</option>{/each}</select
             ></label
           >
           <label class="field_label"
-            >Started<input
+            >Work arrangement<select
+              class="field_input"
+              bind:value={experience.work_arrangement}
+              ><option value="">Not specified</option
+              >{#each arrangements as mode}<option>{mode}</option>{/each}</select
+            ></label
+          >
+          <Location_select label="Work location · optional" bind:value={experience.location_id} />
+          <label class="field_label"
+            >Joined<input
               class="field_input"
               type="month"
               required
@@ -231,7 +331,7 @@
             currently work here</label
           >
           {#if !experience.current}<label class="field_label"
-              >Ended<input
+              >Left<input
                 class="field_input"
                 type="month"
                 min={experience.start}
@@ -239,19 +339,72 @@
                 bind:value={experience.end}
               /></label
             >{/if}
-          <label class="profile_field_check"
-            ><input type="checkbox" bind:checked={experience.promoted} />This
-            role was a promotion</label
-          >
-          <label class="field_label full_width"
-            >Description<textarea
-              class="field_input"
-              rows="3"
-              maxlength="2000"
-              bind:value={experience.description}
-            ></textarea></label
-          >
         </div>
+        {#each experience.roles as role, r}<fieldset class="profile_role">
+            <legend>Role {r + 1}</legend>
+            <div class="form_grid">
+              <label class="field_label"
+                >Designation<input
+                  class="field_input"
+                  required
+                  maxlength="150"
+                  bind:value={role.title}
+                /></label
+              >
+              <label class="field_label"
+                >Started<input
+                  class="field_input"
+                  type="month"
+                  required
+                  min={experience.start}
+                  bind:value={role.start}
+                /></label
+              >
+              <label class="field_label"
+                >Ended{experience.current ? " · leave empty for your current role" : ""}<input
+                  class="field_input"
+                  type="month"
+                  min={role.start}
+                  max={experience.current ? undefined : experience.end}
+                  bind:value={role.end}
+                /></label
+              >
+              <label class="profile_field_check"
+                ><input type="checkbox" bind:checked={role.promoted} />I was
+                promoted into this role</label
+              >
+              <label class="field_label full_width"
+                >Responsibilities<textarea
+                  class="field_input"
+                  rows="3"
+                  maxlength="5000"
+                  bind:value={role.responsibilities}
+                ></textarea></label
+              >
+              <label class="field_label full_width"
+                >Key achievements · one per line<textarea
+                  class="field_input"
+                  rows="3"
+                  value={role.achievements.join("\n")}
+                  on:change={(e) => (role.achievements = lines(e.currentTarget.value))}
+                ></textarea></label
+              >
+            </div>
+            {#if experience.roles.length > 1}<button
+                type="button"
+                class="button button_outline button_small"
+                on:click={() =>
+                  (experience.roles = experience.roles.filter((_, i) => i !== r))}
+                >Remove role</button
+              >{/if}
+          </fieldset>{/each}
+        <button
+          type="button"
+          class="button button_outline button_small"
+          on:click={() =>
+            (experience.roles = [...experience.roles, blank_role(experience.roles.at(-1)?.end || experience.start)])}
+          >Add a role at {experience.company || "this company"}</button
+        >
         <button
           type="button"
           class="button button_outline button_small"
@@ -269,14 +422,15 @@
           ...draft.experiences,
           {
             company: "",
-            title: "",
             type: "Full-time",
+            work_arrangement: "",
+            location_id: "",
+            location: "",
             start: "",
             end: "",
             current: false,
-            promoted: false,
-            description: "",
             verification: "Unverified",
+            roles: [blank_role()],
           },
         ])}>Add experience</button
     >
@@ -319,6 +473,33 @@
               maxlength="4"
               bind:value={education.end}
             /></label
+          ><label class="field_label"
+            >Grade / GPA · optional<input
+              class="field_input"
+              maxlength="50"
+              placeholder="8.9 CGPA, 72%, First class…"
+              bind:value={education.grade}
+            /></label
+          ><label class="field_label"
+            >Honors · optional<input
+              class="field_input"
+              maxlength="200"
+              bind:value={education.honors}
+            /></label
+          ><label class="field_label full_width"
+            >Description · optional<textarea
+              class="field_input"
+              rows="2"
+              maxlength="2000"
+              bind:value={education.description}
+            ></textarea></label
+          ><label class="field_label full_width"
+            >Achievements · one per line<textarea
+              class="field_input"
+              rows="2"
+              value={(education.achievements ?? []).join("\n")}
+              on:change={(e) => (education.achievements = lines(e.currentTarget.value))}
+            ></textarea></label
           >
         </div>
         <button
@@ -335,7 +516,7 @@
       on:click={() =>
         (draft.education = [
           ...draft.education,
-          { institution: "", degree: "", field: "", start: "", end: "" },
+          { institution: "", degree: "", field: "", start: "", end: "", grade: "", honors: "", description: "", achievements: [] },
         ])}>Add education</button
     >
     <h3>Languages</h3>
@@ -348,15 +529,16 @@
               maxlength="60"
               bind:value={language.name}
             /></label
-          ><label class="field_label"
-            >Proficiency<select
-              class="field_input"
-              bind:value={language.proficiency}
-              ><option>Native</option><option>Fluent</option><option
-                >Conversational</option
-              ></select
-            ></label
-          >
+          ><fieldset class="profile_choice_grid">
+            <legend>I can</legend>
+            <label class="profile_field_check"
+              ><input type="checkbox" bind:checked={language.read} />Read</label
+            ><label class="profile_field_check"
+              ><input type="checkbox" bind:checked={language.write} />Write</label
+            ><label class="profile_field_check"
+              ><input type="checkbox" bind:checked={language.speak} />Speak</label
+            >
+          </fieldset>
         </div>
         <button
           type="button"
@@ -372,21 +554,18 @@
       on:click={() =>
         (draft.languages = [
           ...draft.languages,
-          { name: "", proficiency: "Fluent" },
+          { name: "", read: true, write: true, speak: true },
         ])}>Add language</button
     >
     <h3>Work authorization</h3>
     {#each draft.authorizations as authorization, index}<fieldset>
         <legend>Authorization {index + 1}</legend>
         <div class="form_grid">
-          <label class="field_label"
-            >Country<input
-              class="field_input"
-              required
-              maxlength="80"
-              bind:value={authorization.country}
-            /></label
-          ><label class="field_label"
+          <Country_select
+            required
+            value={$countries.find((c) => c.name === authorization.country)?.code ?? ""}
+            on:change={(e) => (authorization.country = e.detail?.name ?? "")}
+          /><label class="field_label"
             >Authorization type<input
               class="field_input"
               required

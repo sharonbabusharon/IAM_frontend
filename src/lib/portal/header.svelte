@@ -10,7 +10,9 @@
     premium_active,
     applications_remaining,
     membership_open,
+    server_quota,
   } from "./membership_state.js";
+  import { rupees, request_topup } from "./payments.js";
   export let user = null;
   export let companies = [];
   // "My company": the first company you belong to (admins first, so their
@@ -121,13 +123,23 @@
       {#if user || $preview_account.enabled}<button
           class="header_balance"
           on:click={() => membership_open.set(true)}
-          aria-label="Preview application allowance and credits"
+          aria-label="Free applications left today and credits"
           ><strong
             >{$premium_active
               ? "Unlimited"
               : `${$applications_remaining} left today`}</strong
-          ><small>{$preview_account.credits} credits · Preview</small></button
-        >{/if}{#if user}<a class="unified_signin" href="/profile" title={user.email}
+          ><small
+            >{$server_quota
+              ? `Credits: ${rupees($server_quota.wallet_paise)}`
+              : `${$preview_account.credits} credits · Preview`}</small
+          ></button
+        >{#if user && $server_quota}<button
+            class="header_topup"
+            type="button"
+            aria-label="Top up your wallet"
+            title="Top up your wallet"
+            on:click={() => request_topup()}><Icon name="plus" size={16} /></button
+          >{/if}{/if}{#if user}<a class="unified_signin" href="/profile" title={user.email}
           >{user.name || user.email}</a
         ><button class="unified_signin" type="button" on:click={sign_out}
           >Sign out</button

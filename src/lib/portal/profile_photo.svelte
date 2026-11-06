@@ -69,6 +69,19 @@
     close();
     toast("Profile photo updated.");
   }
+  async function remove() {
+    if (uploading) return;
+    uploading = true;
+    const result = await profile_api.remove_photo();
+    uploading = false;
+    if (!result.ok) {
+      error = result.error;
+      return;
+    }
+    profile.set(to_store(result.data));
+    close();
+    toast("Profile photo removed.");
+  }
 </script>
 
 {#if readonly}<div class="profile_avatar" class:premium_avatar={premium}>
@@ -120,10 +133,8 @@
     <div class="form_actions">
       {#if $profile.photo}<button
           class="button button_outline"
-          on:click={() => {
-            profile.update((p) => ({ ...p, photo: "" }));
-            close();
-          }}>Remove photo</button
+          disabled={uploading}
+          on:click={remove}>Remove photo</button
         >{/if}<button class="button button_outline" on:click={close}
         >Cancel</button
       ><button class="button button_dark" disabled={!image_url} on:click={save}

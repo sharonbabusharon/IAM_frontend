@@ -36,7 +36,8 @@
     <nav class="compact_footer_links" aria-label="Footer">
       <a href="/about">About us</a><a href="/faq">FAQ</a><a href="/contact"
         >Contact us</a
-      ><a href="/terms">Terms & conditions</a><a href="/privacy">Privacy</a>
+      ><a href="/terms">Terms & conditions</a><a href="/privacy">Privacy</a
+      ><a href="/cookies">Cookie policy</a>
     </nav>
     <div class="footer_bottom">
       <span>© {new Date().getFullYear()} Referise. A world of possibility.</span
@@ -46,7 +47,7 @@
           >Rates by ExchangeRate-API</a
         ></span
       ><span class="preview_label"
-        ><span></span>Interactive preview · Sample data</span
+        ><span></span>Early access</span
       ><button on:click={() => (privacy = true)}
         >Privacy & your data <Icon name="arrow-up-right" size={12} /></button
       >
@@ -58,18 +59,18 @@
     on:close={() => (privacy = false)}
     ><div class="modal_copy">
       <p>
-        This is an interactive design preview. The people, companies,
-        opportunities, and activity shown are sample content.
+        Referise is in early access. Your profile, skills, projects, job posts,
+        companies and applications are saved to your account.
       </p>
       <p>
-        Saved jobs, profile edits, searches, and preview applications are stored
-        only in this browser. This preview does not send applications or upload
-        résumés to an employer.
+        When you apply with Easy Apply, a copy of your profile goes to that
+        employer, including your email and phone. Current salary is left out if
+        you keep it private. Résumé files can’t be uploaded yet.
       </p>
       <p>
-        You can change profile visibility and résumé preferences from your
-        profile. These illustrate the intended controls; server-enforced privacy
-        will be connected with the product APIs.
+        Saved jobs, saved searches, followed companies and credits are still kept
+        only in this browser. Profile visibility and salary privacy are enforced
+        by the server for everyone who opens your profile.
       </p>
       <a
         class="button button_dark"

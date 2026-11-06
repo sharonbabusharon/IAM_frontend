@@ -9,5 +9,9 @@ export async function load({ params, cookies }) {
   const result = await api_request("/jobs/" + params.slug, { session_id: read_session_id(cookies) });
   if (result.status === 404) error(404, "This opportunity could not be found.");
   if (!result.ok) error(502, "Jobs are unavailable right now.");
-  return { job: result.data };
+  // Manual: a recruiter sidebar with their other open roles (best effort).
+  const recruiter = result.data.recruiter
+    ? await api_request("/recruiters/" + result.data.recruiter.id, {})
+    : null;
+  return { job: result.data, recruiter: recruiter?.ok ? recruiter.data : null };
 }

@@ -17,6 +17,7 @@
     contact: ["Let’s talk", "about what’s next."],
     terms: ["Clear expectations.", "From the start."],
     privacy: ["Your story.", "Your choices."],
+    cookies: ["Only what it needs.", "Nothing more."],
   };
   const terms_sections = [
     [
@@ -46,16 +47,16 @@
   ];
   const privacy_sections = [
     [
-      "This design preview",
-      "Job, company and candidate examples are fictional. Saved jobs, profile edits, workspace drafts and sample review actions may be stored in this browser. They are not live employer records.",
+      "Early access",
+      "Profiles, job posts, companies and applications are stored on our servers and tied to your account. Some sections, such as company wallets and analytics, still show sample data and say so on the page.",
     ],
     [
       "Your profile choices",
-      "The profile includes separate controls for contact details, salary and résumé visibility. The public view demonstrates these choices. Production field access must be enforced by the profile API.",
+      "Separate controls decide whether visitors to your public profile see your contact details, salaries and résumé. The server applies them. Applying to a job shares a copy of your profile with that employer, without current salary if you keep it private.",
     ],
     [
       "Files & attachments",
-      "A résumé selected in the candidate preview is held for the current session. Company images may be saved with local company drafts. Use sample files while reviewing the interface.",
+      "Profile photos and company logos and banners are stored with your account or company. Résumé files can’t be uploaded yet.",
     ],
     [
       "Authentication",
@@ -63,14 +64,38 @@
     ],
     [
       "Browser storage",
-      "The preview uses local browser storage for continuity across visits. Clearing site data in your browser removes those local records. A live account’s deletion process will be provided by the service.",
+      "Some preferences and preview data are still kept in your browser; the cookie policy lists them. Clearing site data removes them. You can delete your Referise account under Profile → Preferences.",
     ],
     [
       "Before launch",
       "The team must supply the final privacy policy, retention rules, contact details and any applicable consent choices before production release.",
     ],
   ];
-  $: sections = kind === "terms" ? terms_sections : privacy_sections;
+  // What the app stores in the browser today (src/lib/server/session_cookie.js,
+  // state.js, workspace_state.js, my_skills.js, reference.js).
+  const cookie_sections = [
+    [
+      "The one cookie we set",
+      "Signing in sets a single cookie holding an opaque session id (jp_session; __Host-jp_session on the live site). It is HttpOnly, so page scripts can't read it, and lasts up to 30 days. It ends when you sign out or delete your account. The site can't keep you signed in without it.",
+    ],
+    [
+      "Browser storage",
+      "Your browser's local storage keeps preview data and preferences (keys starting referise-preview:, referise-workspace-v1: and referise:my_skills). An IndexedDB database called referise-reference caches the public skills, designations, locations and exchange rates so search works quickly and offline. None of this is sent to us as a cookie.",
+    ],
+    [
+      "No tracking",
+      "We don't set advertising or analytics cookies, and no third-party tracking scripts run on the site.",
+    ],
+    [
+      "Your choices",
+      "You can clear cookies and site data in your browser at any time; you'll be signed out and the cached data is downloaded again.",
+    ],
+    [
+      "Before launch",
+      "The team must supply the final cookie policy wording, effective date and contact details before production release.",
+    ],
+  ];
+  $: sections = kind === "terms" ? terms_sections : kind === "cookies" ? cookie_sections : privacy_sections;
 </script>
 
 <svelte:head
@@ -81,7 +106,9 @@
         ? "Terms & conditions"
         : kind === "privacy"
           ? "Privacy"
-          : kind === "contact"
+          : kind === "cookies"
+            ? "Cookie policy"
+            : kind === "contact"
             ? "Contact us"
             : "About Referise"} — Referise</title
   ></svelte:head
@@ -275,7 +302,9 @@
   {:else}<p class="workspace_hint warning">
       {kind === "terms"
         ? "Terms layout for review · Final legal wording is pending. This is not an operative service agreement."
-        : "Privacy information for the current preview · Final production policy is pending."}
+        : kind === "cookies"
+          ? "Cookie information for the current preview · Final production policy is pending."
+          : "Privacy information for the current preview · Final production policy is pending."}
     </p>
     <div class="reading_layout">
       <aside>

@@ -35,6 +35,9 @@ export const companies_api = {
   // data_url: the cropped image from Image_field (data:image/jpeg;base64,...)
   upload_image: async (slug, kind, data_url) =>
     call(`/${enc(slug)}/${kind}`, { method: "PUT", image: await (await fetch(data_url)).blob() }),
+  // The product card at index (as last saved), ≤1 MB.
+  upload_product_image: async (slug, index, data_url) =>
+    call(`/${enc(slug)}/products/${index}/image`, { method: "PUT", image: await (await fetch(data_url)).blob() }),
   dashboard: (slug) => call(`/${enc(slug)}/dashboard`),
   members: (slug, status) => call(`/${enc(slug)}/members?status=${enc(status)}`),
   decide: (slug, user_id, approve) =>

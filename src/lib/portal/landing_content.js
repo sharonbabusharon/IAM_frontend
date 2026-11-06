@@ -1,47 +1,22 @@
+// The landing page's six counters: copy for each field of GET /api/v1/stats
+// (the backend recomputes them once a day).
 export const platform_metrics = [
-  {
-    value: "100K+",
-    label: "Registered users",
-    detail: "A world of different skills, stories, and ambitions.",
-    note: "+14% month on month",
-    icon: "users",
-  },
-  {
-    value: "12K+",
-    label: "HR professionals",
-    detail: "People helping the right talent find its place.",
-    note: "Verified leads",
-    icon: "user",
-  },
-  {
-    value: "8K+",
-    label: "Global companies",
-    detail: "From small, ambitious teams to global names.",
-    note: "75+ sectors",
-    icon: "building",
-  },
-  {
-    value: "25K+",
-    label: "Open opportunities",
-    detail: "Fresh roles, clear expectations, a next step.",
-    note: "Pre-vetted roles · Response SLAs",
-    icon: "briefcase",
-  },
-  {
-    value: "120+",
-    label: "Countries with candidates",
-    detail: "Good work has never belonged to one place.",
-    note: "24 time zones",
-    icon: "globe",
-  },
-  {
-    value: "75+",
-    label: "Countries with jobs & companies",
-    detail: "A growing network of possibilities across borders.",
-    note: "Global hiring coverage",
-    icon: "location",
-  },
+  { key: "registered_users", label: "Registered users", detail: "A world of different skills, stories, and ambitions.", icon: "users" },
+  { key: "hr_professionals", label: "HR professionals", detail: "People helping the right talent find its place.", icon: "user" },
+  { key: "companies", label: "Global companies", detail: "From small, ambitious teams to global names.", icon: "building" },
+  { key: "open_jobs", label: "Open opportunities", detail: "Fresh roles, clear expectations, a next step.", icon: "briefcase" },
+  { key: "countries_with_users", label: "Countries with candidates", detail: "Good work has never belonged to one place.", icon: "globe" },
+  { key: "countries_with_jobs_companies", label: "Countries with jobs & companies", detail: "A growing network of possibilities across borders.", icon: "location" },
 ];
+
+/** A counter as the landing page shows it: 950, 1.2K+, 25K+, 100K+, 3.4M+ (rounded down). */
+export function metric_value(n) {
+  if (!Number.isFinite(n) || n < 1000) return String(Math.max(0, Math.floor(n || 0)));
+  const [unit, size] = n >= 1e6 ? ["M", 1e6] : ["K", 1e3];
+  const scaled = n / size;
+  const shown = scaled < 10 ? Math.floor(scaled * 10) / 10 : Math.floor(scaled);
+  return `${shown}${unit}+`;
+}
 export const landing_faqs = [
   {
     question: "What makes Referise different?",

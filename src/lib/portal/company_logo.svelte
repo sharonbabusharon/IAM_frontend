@@ -1,14 +1,10 @@
 <script>
-  import { company_records } from "./workspace_state.js";
   export let id = "forma";
   export let size = 44;
-  // A live company's uploaded logo; fixtures fall back to their drawn marks.
+  // A live company's uploaded logo; otherwise a drawn mark (named marks are
+  // the illustration's; anything else gets the generic one).
   export let src = "";
-  $: company = (src && { logo: src, color: "#3155ef", background: "#e9edff" }) || $company_records.find((c) => c.id === id) || {
-    name: "Company",
-    color: "#3155ef",
-    background: "#e9edff",
-  };
+  $: company = { logo: src, color: "#3155ef", background: "#e9edff" };
 </script>
 
 <span
